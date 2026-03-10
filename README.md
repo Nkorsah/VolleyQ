@@ -1,3 +1,6 @@
 # Welcome to VolleyQ!
-## VolleyQ is a team management app for pick-up volleyball games.
+_VolleyQ is a team management app for pick-up volleyball games._
+
+
+
 
