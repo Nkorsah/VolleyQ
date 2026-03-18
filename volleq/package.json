@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:ui": "vitest --ui"
   },
+  "proxy": "http://localhost:4000",
   "devDependencies": {
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
