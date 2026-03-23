@@ -5,6 +5,10 @@
   font-family:system-ui, sans-serif;
 }
 
+#root {
+  height: 100%;
+}
+
 body{
   height:100vh;
   background:#e6d6a6;
