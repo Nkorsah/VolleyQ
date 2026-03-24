@@ -1,25 +1,23 @@
 {
   "compilerOptions": {
-    "jsx": "react-jsx",
     "target": "ES2022",
     "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vitest/globals", "node", "vite/client"],
-    "skipLibCheck": true,
 
-    /* Bundler mode */
+    "jsx": "react-jsx",
+    "types": ["vitest/globals", "node", "vite/client", "react", "react-dom"],
+
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
 
-    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
