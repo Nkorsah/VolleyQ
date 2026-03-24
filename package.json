@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@google/genai": "^1.45.0",
-    "@googlemaps/js-api-loader": "^2.0.2",
-    "@vis.gl/react-google-maps": "^1.7.1"
-  }
-}
