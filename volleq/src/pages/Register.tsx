@@ -2,9 +2,10 @@ import { useState, useEffect, type JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
-import { db } from "../firebase/firebase-service";
+// import { db } from "../firebase/firebase-service";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-import axios from "axios";
+// import axios from "axios";
+
 import { createUser } from "./api.ts";
 
 function Register(): JSX.Element {
@@ -19,7 +20,7 @@ function Register(): JSX.Element {
 
   const [name, setName] = useState("");
 
-  const [responseMessage, setResponseMessage] = useState("");
+  // const [responseMessage, setResponseMessage] = useState("");
 
   // 🔍 Debug auth state
   useEffect(() => {
@@ -51,6 +52,7 @@ function Register(): JSX.Element {
         // creating new user entity to be sent to the database. 
         const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
           name: name || firebaseUser.displayName || "",
+          email: email,
           avatarUrl: "https://i.pravatar.cc/50",
           role: "player",
           stats: { wins: 0, losses: 0 },
@@ -63,46 +65,6 @@ function Register(): JSX.Element {
         } catch (err) {
           console.error("Create user failed", err);
         }
-
-        // try {
-        //   // calls the backend. 
-        //   const res = await axios.post(`${import.meta.env.VITE_SERVER_HOST}/api/user-create`, newUser);
-        //   console.log('Status:', res.status);
-        //   console.log('Response data:', res.data);
-        //   console.log("[REGISTER] Firestore document created");
-        // } catch (err) {
-        //     if (axios.isAxiosError(err)) {
-        //       // Now TypeScript knows err is AxiosError
-        //       if (err.response) {
-        //         console.error('POST failed with status:', err.response.status, err.response.statusText);
-        //       } else if (err.request) {
-        //         console.error('Network error: no response from server');
-        //       } else {
-        //         console.error('Request setup error:', err.message);
-        //       }
-        //     } else {
-        //       // Non-Axios error
-        //       console.error('Unexpected error', err);
-        //     }
-
-        //     // Remove the user from authenticated list. see if there is a delete user function from index.tsx firebase file
-        // }
-     
-        // try {
-        //   // api call instead
-        //   await setDoc(doc(db, "users", firebaseUser.uid), {
-        //     name: name || firebaseUser.displayName || "",
-        //     avatarUrl: "https://i.pravatar.cc/50",
-        //     createdAt: serverTimestamp(),
-        //     role: "player",
-        //     stats: { wins: 0, losses: 0 },
-        //   });
-        //   console.log("[REGISTER] Firestore document created");
-        // } catch (error) {
-        //   console.error("[REGISTER] Firestore error:", error);
-        //   
-        // }
-        
        
 
         // Redirect after successful signup

@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+import App from "./app.tsx";
 import Login from "./pages/Login.tsx";
-import MapPage from "./pages/mapPage.tsx";
+import MapPage from "./pages/MapPage.tsx";
 import "./index.css";
 import { AuthProvider } from "./contexts/authContext/index.js";
 import Register from "./pages/Register.tsx";

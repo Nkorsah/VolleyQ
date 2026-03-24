@@ -9,4 +9,4 @@ The frontend of the app uses React and Websockets. React will be used to constru
 ## How to start building. 
 - go into volleq directory
 - run npm install
-- then run npx vite and ctrl + right click to open in browser!  
+- then run npm run dev and ctrl + right click to open in browser!  

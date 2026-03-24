@@ -41,10 +41,11 @@ router.post('/user-create', (req, res) => {
     // }
     console.log("/api/user-create has been called! Attempting to create user...")
     try { 
-        const { name, avatarUrl, createdAt, role, stats } = req.body;
+        const { name, email, avatarUrl, createdAt, role, stats } = req.body;
 
         const userJson = {
             name: name,
+            email: email,
             avatarUrl: avatarUrl,
             createdAt: createdAt,
             role: role,
