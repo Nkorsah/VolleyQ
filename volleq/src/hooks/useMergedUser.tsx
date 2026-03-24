@@ -17,6 +17,7 @@ export const useMergedUser = () => {
       }
 
       try {
+        // convert this into an api call to the backend. 
         // Fetch extra data from Firestore
         const docRef = doc(db, "users", firebaseUser.uid);
         const docSnap = await getDoc(docRef);

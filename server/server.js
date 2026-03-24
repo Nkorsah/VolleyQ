@@ -1,26 +1,68 @@
-const express = require('express')
-const cors = require('cors')
-const bodyParser = require('body-parser')
+// const express = require('express')
+// const cors = require('cors')
+// const bodyParser = require('body-parser')
+
+// const admin = require('firebase-admin'); 
+// const credentials = require('./firebase-key.json');
+// import { configDotenv } from 'dotenv';
+
+// documentation: https://firebase.google.com/docs/firestore/manage-data/add-data#node.js
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+// import admin from 'firebase-admin';
+// import { getDatabase, ref, set } from "firebase/database";
+// import { doc, setDoc } from "firebase/firestore"; 
+
+import { initializeApp, applicationDefault, cert, getApps } from 'firebase-admin/app'
+import { getFirestore, Timestamp, FieldValue, Filter } from 'firebase-admin/firestore'
+import serviceAccount from './firebase-key.json' with { type: 'json' };
 
 const app = express()
 
-const admin = require('firebase-admin'); 
-const credentials = require('./firebase-key.json');
 
-admin.initializeApp({
-    credential: admin.credential.cert(credentials)
-})
+if (!getApps().length) {
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+}
+const db = getFirestore();
+// admin.initializeApp({
+//     credential: admin.credential.cert(credentials)
+// })
+const data = {
+  name: 'Los Angeles',
+  state: 'CA',
+  country: 'USA'
+};
 
-const db = admin.firestore(); 
+// Add a new document in collection "cities" with ID 'LA'
+// const res = await db.collection('cities').doc('LA').set(data);
+// Example request. 
+try {
+  await db.collection('cities').doc('LA').set(data);
 
+  console.log('success')
+} catch (error) {
+  console.error('Error', error)
+}
 
+// creating a document
+// await db.collection('cities').doc('new-city-id').set(data);
 
-const router = require('./routes/router');
-const teamRoutes = require('./routes/teamRoutes');
-const playerRoutes = require('./routes/playerRoutes');
-const matchRoutes = require('./routes/matchRoutes');
-const statsRoutes = require('./routes/statsRoutes');
-const aiRoutes = require('./routes/aiRoutes');
+// const db = admin.firestore(); 
+
+// db = getDatabase()
+
+// getting the routes from other files. 
+import router from './routes/router.js'; // sample router. It has it's own file. 
+import teamRoutes from './routes/teamRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import matchRoutes from './routes/matchRoutes.js';
+import statsRoutes from './routes/statsRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended:false}))
@@ -51,8 +93,9 @@ app.post('/create', async (req, res) => {
     }
 })
 
+// The different routes for users. 
 app.use('/api', teamRoutes);
-app.use('/api', playerRoutes);
+app.use('/api', userRoutes);
 app.use('/api', matchRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', aiRoutes);

@@ -71,7 +71,8 @@ function Login(): JSX.Element {
             </span>
           </p>
           {errorMessage && <p className="error-text text-red-500">{errorMessage}</p>}
-          <button type="submit" disabled={isLoading}>
+          <button className="text-2xl px-12 py-5 rounded-2xl border-2 border-black bg-[#f2e28d] hover:scale-105 transition-transform"
+          type="submit" disabled={isLoading}>
             {isLoading ? "Loading..." : "Sign In"}
           </button>
         </form>

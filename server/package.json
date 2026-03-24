@@ -3,17 +3,23 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.57.1",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "firebase": "^12.10.0",
     "firebase-admin": "^13.7.0"
+  },
+  "type": "module",
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

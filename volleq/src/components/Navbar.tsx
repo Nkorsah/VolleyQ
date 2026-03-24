@@ -1,5 +1,5 @@
 import React from "react";
-import type { AppUser } from "../src/types/AppUser";
+import type { AppUser } from "../types/AppUser";
 
 type NavbarProps = {
   user?: AppUser | null;

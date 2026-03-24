@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import Navbar from "../components/Navbar";
+import Navbar from "./components/Navbar";
 import { useAuth } from './contexts/authContext/index.tsx';
 import {doSignOut} from './firebase/auth.ts'
 import { useNavigate } from "react-router-dom";
