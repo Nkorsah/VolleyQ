@@ -4,6 +4,8 @@ import { useAuth } from "../contexts/authContext/index.tsx";
 import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
 import { db } from "../firebase/firebase-service";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import axios from "axios";
+import { createUser } from "./api.ts";
 
 function Register(): JSX.Element {
   const navigate = useNavigate();
@@ -16,6 +18,8 @@ function Register(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
 
   const [name, setName] = useState("");
+
+  const [responseMessage, setResponseMessage] = useState("");
 
   // 🔍 Debug auth state
   useEffect(() => {
@@ -38,25 +42,68 @@ function Register(): JSX.Element {
 
         console.log("[REGISTER] Creating user in Firebase...");
 
+        // authenticating the user to firebase
         const result = await doCreateUserWithEmailAndPassword(email, password);
         const firebaseUser = result.user; // getting the user after creation
         console.log(firebaseUser);
+
         // writing additional data about the user into the firestore database.
-        try {
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            name: name || firebaseUser.displayName || "",
-            avatarUrl: "https://i.pravatar.cc/50",
-            createdAt: serverTimestamp(),
-            role: "player",
-            stats: { wins: 0, losses: 0 },
-          });
-          console.log("[REGISTER] Firestore document created");
-        } catch (error) {
-          console.error("[REGISTER] Firestore error:", error);
-          setErrorMessage("Failed to create user profile");
+        // creating new user entity to be sent to the database. 
+        const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
+          name: name || firebaseUser.displayName || "",
+          avatarUrl: "https://i.pravatar.cc/50",
+          role: "player",
+          stats: { wins: 0, losses: 0 },
+          createdAt: serverTimestamp()
         }
+
+        try{ // 
+          const data = await createUser(newUser);
+          console.log("User created:", data);
+        } catch (err) {
+          console.error("Create user failed", err);
+        }
+
+        // try {
+        //   // calls the backend. 
+        //   const res = await axios.post(`${import.meta.env.VITE_SERVER_HOST}/api/user-create`, newUser);
+        //   console.log('Status:', res.status);
+        //   console.log('Response data:', res.data);
+        //   console.log("[REGISTER] Firestore document created");
+        // } catch (err) {
+        //     if (axios.isAxiosError(err)) {
+        //       // Now TypeScript knows err is AxiosError
+        //       if (err.response) {
+        //         console.error('POST failed with status:', err.response.status, err.response.statusText);
+        //       } else if (err.request) {
+        //         console.error('Network error: no response from server');
+        //       } else {
+        //         console.error('Request setup error:', err.message);
+        //       }
+        //     } else {
+        //       // Non-Axios error
+        //       console.error('Unexpected error', err);
+        //     }
+
+        //     // Remove the user from authenticated list. see if there is a delete user function from index.tsx firebase file
+        // }
+     
+        // try {
+        //   // api call instead
+        //   await setDoc(doc(db, "users", firebaseUser.uid), {
+        //     name: name || firebaseUser.displayName || "",
+        //     avatarUrl: "https://i.pravatar.cc/50",
+        //     createdAt: serverTimestamp(),
+        //     role: "player",
+        //     stats: { wins: 0, losses: 0 },
+        //   });
+        //   console.log("[REGISTER] Firestore document created");
+        // } catch (error) {
+        //   console.error("[REGISTER] Firestore error:", error);
+        //   
+        // }
         
-        console.log("[REGISTER] Firestore document created");
+       
 
         // Redirect after successful signup
         navigate("/home");

@@ -1,11 +1,10 @@
-// This is the welcome page
 import type { JSX } from "react";
-import Navbar from "./components/Navbar.tsx";
-import { useAuth } from "./contexts/authContext/index.tsx";
-import { doSignOut } from "./firebase/auth.ts";
+import Navbar from "../components/Navbar.tsx";
+import { useAuth } from "../contexts/authContext/index.tsx";
+import { doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
 
-function App(): JSX.Element {
+function MapPage(): JSX.Element {
   const { currentUser, userLoggedIn, loading } = useAuth();
   // The above details gets the current user information.
 
@@ -25,19 +24,10 @@ function App(): JSX.Element {
       <Navbar user={currentUser} onLogout={handleLogout} />
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center text-center">
-        <h1 className="text-5xl mb-10">
-          Welcome back {currentUser?.name || "Player"}!
-        </h1>
-
-        <button
-          onClick={() => navigate("/map-page")}
-          className="text-2xl px-12 py-5 rounded-2xl border-2 border-black bg-[#f2e28d] hover:scale-105 transition-transform"
-        >
-          Start Playing!
-        </button>
+        <h1 className="text-5xl mb-10">This is the map page</h1>
       </main>
     </div>
   );
 }
 
-export default App;
+export default MapPage;

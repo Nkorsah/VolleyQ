@@ -1,5 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router(); 
+
 
 router.get('/users', (req, res) => {
     const userData = 
@@ -27,4 +28,4 @@ router.get('/users', (req, res) => {
     res.send(userData); 
 })
 
-module.exports = router;
+export default router;
