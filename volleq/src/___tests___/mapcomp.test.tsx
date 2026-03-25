@@ -23,7 +23,7 @@ const mockZoom = 9;
 describe('MapComponent', () => {
   //initialize mock api key
   beforeEach(() => {
-    process.env.GOOGLE_MAPS_API_KEY = 'mock-maps-key';
+    import.meta.env.VITE_GOOGLE_MAPS_API_KEY = 'mock-maps-key';
   });
   //test for google map render
   it('renders the google map', () => {
@@ -38,12 +38,12 @@ describe('MapComponent', () => {
   });
   //test for api key error
   it('shows error when missing api key', () => {
-    const originalEnv = process.env.GOOGLE_MAPS_API_KEY;
-    process.env.GOOGLE_MAPS_API_KEY = '';
+    const originalEnv = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    import.meta.env.VITE_GOOGLE_MAPS_API_KEY = '';
 
     render(<MapComponent />);
     expect(screen.getByText('Error with API key')).toBeInTheDocument();
 
-    process.env.GOOGLE_MAPS_API_KEY = originalEnv;
+    import.meta.env.VITE_GOOGLE_MAPS_API_KEY = originalEnv;
   });
 });

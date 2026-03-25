@@ -3,6 +3,7 @@ import Navbar from "../components/Navbar.tsx";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
+import MapComponent from '../maps/mapcomp';
 
 function MapPage(): JSX.Element {
   const { currentUser, userLoggedIn, loading } = useAuth();
@@ -22,10 +23,11 @@ function MapPage(): JSX.Element {
   return (
     <div className="h-screen flex flex-col bg-[#e6d6a6]">
       <Navbar user={currentUser} onLogout={handleLogout} />
-      {/* Hero */}
+      {/* Hero
       <main className="flex-1 flex flex-col items-center justify-center text-center">
         <h1 className="text-5xl mb-10">This is the map page</h1>
-      </main>
+      </main> */}
+      <MapComponent/>
     </div>
   );
 }
