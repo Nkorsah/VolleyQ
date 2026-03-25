@@ -1,0 +1,100 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Register Component > renders correctly and matches the snapshot 1`] = `
+<DocumentFragment>
+  <div
+    class="h-screen flex flex-col bg-[#e6d6a6]"
+  >
+    <header
+      class="flex justify-between items-center px-10 py-5"
+    >
+      <div
+        class="text-2xl font-bold"
+      >
+        Logo
+      </div>
+      <div
+        class="flex items-center gap-8"
+      >
+        <a
+          class="font-semibold"
+          href="#"
+        >
+          Home
+        </a>
+        <a
+          class="font-semibold"
+          href="#"
+        >
+          Profile
+        </a>
+        <a
+          class="font-semibold"
+          href="#"
+        >
+          Settings
+        </a>
+        <button
+          class="border border-black px-4 py-2 rounded-lg"
+        >
+          Logout
+        </button>
+        <img
+          alt="avatar"
+          class="w-9 h-9 rounded-full"
+          src="https://i.pravatar.cc/40"
+        />
+      </div>
+    </header>
+    <main
+      class="flex-1 flex flex-col items-center justify-center text-center"
+    >
+      <form
+        class="form"
+      >
+        <input
+          name="name"
+          placeholder="Name"
+          required=""
+          type="text"
+          value=""
+        />
+        <input
+          name="email"
+          placeholder="Email"
+          required=""
+          type="email"
+          value=""
+        />
+        <input
+          name="password"
+          placeholder="Password"
+          required=""
+          type="password"
+          value=""
+        />
+        <p
+          class="navigate-text"
+        >
+          Already have an account? 
+          <span
+            class="cursor-pointer text-blue-600"
+          >
+            Log In
+          </span>
+        </p>
+        <button
+          type="submit"
+        >
+          Sign Up
+        </button>
+      </form>
+      <h1
+        class="text-5xl mb-10"
+      >
+        This is the Register Screen
+      </h1>
+    </main>
+  </div>
+</DocumentFragment>
+`;
