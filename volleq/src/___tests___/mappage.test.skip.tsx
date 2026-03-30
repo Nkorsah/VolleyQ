@@ -1,9 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
-import MapPage from '../pages/MapPage';
-import { useAuth } from '../contexts/authContext/index.tsx';
-import { doSignOut } from '../firebase/auth.ts';
+import MapPage from './pages/MapPage.tsx';
+import { useAuth } from './contexts/authContext/index.tsx';
+import { doSignOut } from './firebase/auth.ts';
 
 vi.mock('../contexts/authContext/index.tsx', () => ({
   useAuth: vi.fn(),
