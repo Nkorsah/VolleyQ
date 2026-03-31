@@ -1,12 +1,9 @@
-import { useState, useEffect, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
-// import { db } from "../firebase/firebase-service";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-// import axios from "axios";
-
-import { createUser } from "./api.ts";
+import { serverTimestamp } from "firebase/firestore";
+import { createUser, CreateUserRequest } from "./api.ts";
 
 function Register(): JSX.Element {
   const navigate = useNavigate();
@@ -14,63 +11,38 @@ function Register(): JSX.Element {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const [name, setName] = useState("");
-
-  // const [responseMessage, setResponseMessage] = useState("");
-
-  // 🔍 Debug auth state
-  useEffect(() => {
-    console.log("[AUTH] userLoggedIn:", userLoggedIn);
-  }, [userLoggedIn]);
-
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    console.log("[REGISTER] Submit clicked");
-    console.log("[REGISTER] Email:", email);
-    console.log("[REGISTER] Password:", password);
+    if (password !== confirmPassword) {
+      return setErrorMessage("Passwords do not match");
+    }
 
     if (!isSigningUp) {
       try {
-        console.log(name)
         setIsSigningUp(true);
         setIsLoading(true);
         setErrorMessage("");
 
-        console.log("[REGISTER] Creating user in Firebase...");
-
-        // authenticating the user to firebase
         const result = await doCreateUserWithEmailAndPassword(email, password);
-        const firebaseUser = result.user; // getting the user after creation
-        console.log(firebaseUser);
+        const firebaseUser = result.user;
 
-        // writing additional data about the user into the firestore database.
-        // creating new user entity to be sent to the database. 
-        const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
-          name: name || firebaseUser.displayName || "",
-          email: email,
+        const newUser: CreateUserRequest = {
+          name: name || firebaseUser.displayName || "Anonymous Player",
           avatarUrl: "https://i.pravatar.cc/50",
           role: "player",
           stats: { wins: 0, losses: 0 },
           createdAt: serverTimestamp()
-        }
+        };
 
-        try{ // 
-          const data = await createUser(newUser);
-          console.log("User created:", data);
-        } catch (err) {
-          console.error("Create user failed", err);
-        }
-       
-
-        // Redirect after successful signup
+        await createUser(newUser);
         navigate("/home");
       } catch (error: any) {
-        console.error("[REGISTER] Error:", error);
         setErrorMessage(error.message || "Registration failed");
         setIsSigningUp(false);
       } finally {
@@ -79,90 +51,94 @@ function Register(): JSX.Element {
     }
   };
 
-  // 🔁 Redirect if already logged in
   if (userLoggedIn) {
-    console.log("[REGISTER] Redirecting to /home");
     return <Navigate to="/home" replace={true} />;
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#e6d6a6]">
-      {/* Navbar */}
-      <header className="flex justify-between items-center px-10 py-5">
-        <div className="text-2xl font-bold">Logo</div>
-
-        <div className="flex items-center gap-8">
-          <a href="#" className="font-semibold">Home</a>
-          <a href="#" className="font-semibold">Profile</a>
-          <a href="#" className="font-semibold">Settings</a>
-
-          <button className="border border-black px-4 py-2 rounded-lg">
-            Logout
+    <div className="h-screen flex flex-col bg-[#FDF0B4] font-sans">
+      {/* Navbar Matching Mockup */}
+      <header className="flex justify-between items-center px-12 py-8 bg-[#FDF0B4]">
+        <div className="text-3xl font-bold text-black">Logo</div>
+        <div className="flex items-center gap-12">
+          <a href="#" className="text-2xl font-bold text-black">Home</a>
+          <a href="#" className="text-2xl font-bold text-black">About</a>
+          <a href="#" className="text-2xl font-bold text-black">Contact</a>
+          <button 
+            onClick={() => navigate("/")}
+            className="text-2xl font-bold border-2 border-black px-6 py-2 rounded-xl hover:bg-black/5"
+          >
+            Login
           </button>
-
-          <img
-            className="w-9 h-9 rounded-full"
-            src="https://i.pravatar.cc/40"
-            alt="avatar"
-          />
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center text-center">
-        <form onSubmit={onSubmit} className="form">
-          <input
-            required
-            type="text"
-            name="name"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            required
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => {
-              console.log("[INPUT] Email:", e.target.value);
-              setEmail(e.target.value);
-            }}
-          />
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center">
+        <div className="bg-[#FFF49C] w-[500px] py-16 px-12 rounded-[40px] border border-black/20 shadow-sm flex flex-col items-center">
+          <h2 className="text-4xl font-medium text-black mb-12">Create Account</h2>
+          
+          <form onSubmit={onSubmit} className="w-full flex flex-col gap-10">
+            {/* Email Field */}
+            <div className="flex flex-col gap-2">
+              <label className="text-lg text-black font-medium">Email</label>
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-transparent border-b-2 border-black outline-none pb-1 text-lg"
+              />
+            </div>
 
-          <input
-            required
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => {
-              console.log("[INPUT] Password:", e.target.value);
-              setPassword(e.target.value);
-            }}
-          />
+            {/* Password Field */}
+            <div className="flex flex-col gap-2">
+              <label className="text-lg text-black font-medium">Password</label>
+              <input
+                required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-transparent border-b-2 border-black outline-none pb-1 text-lg"
+              />
+            </div>
 
-          <p className="navigate-text">
+            {/* Confirm Password Field */}
+            <div className="flex flex-col gap-2">
+              <label className="text-lg text-black font-medium">Confirm Password</label>
+              <input
+                required
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-transparent border-b-2 border-black outline-none pb-1 text-lg"
+              />
+            </div>
+
+            {errorMessage && (
+              <p className="text-red-600 text-center font-medium -mt-4">{errorMessage}</p>
+            )}
+
+            {/* Sign Up Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-4 bg-[#FFF49C] border-2 border-black py-4 rounded-2xl text-2xl font-bold hover:bg-black/5 transition-colors"
+            >
+              {isLoading ? "Signing Up..." : "Sign Up"}
+            </button>
+          </form>
+
+          <p className="mt-8 text-lg">
             Already have an account?{" "}
             <span
-              className="cursor-pointer text-blue-600"
+              className="cursor-pointer font-bold hover:underline"
               onClick={() => navigate("/")}
             >
-              Log In
+              Login
             </span>
           </p>
-
-          {errorMessage && (
-            <p className="error-text text-red-500">{errorMessage}</p>
-          )}
-
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? "Loading..." : "Sign Up"}
-          </button>
-        </form>
-
-        <h1 className="text-5xl mb-10">This is the Register Screen</h1>
+        </div>
       </main>
     </div>
   );

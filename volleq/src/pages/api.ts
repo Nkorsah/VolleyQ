@@ -44,3 +44,16 @@ export const createUser = async (newUser: CreateUserRequest) => {
     throw err; // VERY IMPORTANT (so caller knows it failed)
   }
 };
+
+export const updateUser = async (uid: string, updatedData: Partial<CreateUserRequest>) => {
+  try {
+    const res = await axios.put(
+      `${import.meta.env.VITE_SERVER_HOST}/api/user-update/${uid}`,
+      updatedData
+    );
+    return res.data;
+  } catch (err) {
+    console.error('Update user failed:', err);
+    throw err;
+  }
+};
