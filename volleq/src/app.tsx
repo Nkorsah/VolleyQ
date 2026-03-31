@@ -5,8 +5,11 @@ import { doSignOut } from './firebase/auth.ts';
 import { useNavigate } from "react-router-dom";
 
 function App(): JSX.Element {
-  const { currentUser } = useAuth();
+  const { currentUser, userLoggedIn, loading} = useAuth();
   const navigate = useNavigate();
+  // still have to merge the user. 
+
+  console.log("user is:" + currentUser)
 
   const handleLogout = async () => {
     try {

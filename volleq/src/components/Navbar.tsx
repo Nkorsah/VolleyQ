@@ -47,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
         <img
           className="w-9 h-9 rounded-full"
-          src={user?.avatarUrl || "https://i.pravatar.cc/40"}
+          src={user?.avatarUrl || "https://i.pravatar.cc/40?img=62"}
           alt={user?.name || "avatar"}
         />
       </div>

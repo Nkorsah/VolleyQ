@@ -5,8 +5,14 @@ import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
 // import { db } from "../firebase/firebase-service";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 // import axios from "axios";
-
 import { createUser } from "./api.ts";
+import { v4 as uuid } from 'uuid'
+
+// const uuidFromUuidV4 = () => {
+//   const newUuid = uuid()
+//   return newUuid;
+//   // setId(newUuid)
+// }
 
 function Register(): JSX.Element {
   const navigate = useNavigate();
@@ -20,6 +26,8 @@ function Register(): JSX.Element {
 
   const [name, setName] = useState("");
 
+  // console.log(uuid()) // user id.  
+  // console.log(uuidv4())
   // const [responseMessage, setResponseMessage] = useState("");
 
   // 🔍 Debug auth state
@@ -51,16 +59,17 @@ function Register(): JSX.Element {
         // writing additional data about the user into the firestore database.
         // creating new user entity to be sent to the database. 
         const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
+          userID: uuid(),
           name: name || firebaseUser.displayName || "",
           email: email,
-          avatarUrl: "https://i.pravatar.cc/50",
+          avatarUrl: "https://i.pravatar.cc/40?img=58",
           role: "player",
           stats: { wins: 0, losses: 0 },
           createdAt: serverTimestamp()
         }
 
         try{ // 
-          const data = await createUser(newUser);
+          const data = await createUser(newUser); // sends to firebase db. 
           console.log("User created:", data);
         } catch (err) {
           console.error("Create user failed", err);
@@ -82,7 +91,7 @@ function Register(): JSX.Element {
   // 🔁 Redirect if already logged in
   if (userLoggedIn) {
     console.log("[REGISTER] Redirecting to /home");
-    return <Navigate to="/home" replace={true} />;
+    return <Navigate to="/" replace={true} />;
   }
 
   return (

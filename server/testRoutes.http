@@ -1,0 +1,49 @@
+// from frontend. 
+
+POST http://localhost:8080/api/user-create
+Content-Type: application/json
+
+{   
+    "userID": "80",
+  "name": "JohnDoe",
+  "email": "john@example.com",
+  "avatarUrl": "https://example.com/avatar.png",
+  "createdAt": "2026-03-26T12:00:00Z",
+  "role": "user",
+  "stats": {
+    "gamesPlayed": 10,
+    "wins": 7
+  }
+}
+
+// this makes a user create a team. I have the id of the team as 24 and the members of the team should be a list with the userID.
+###
+
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+
+{
+  "id": "24",
+  "name": "TheGreatestTeam",
+  "members": [123567],
+  "createdAt": "2026-03-26T12:00:00Z",
+  "settings": {
+    "color": "FFFF",
+    "numberOfPlayers": 8
+  }
+}
+
+// make a user join a team
+###
+PUT http://localhost:8080/api/join-team/
+Content-Type: application/json
+{
+  
+}
+###
+DELETE http://localhost:8080/api/delete-team/
+
+// probably need to make a collection called list of teams.
+// so it'll post in two different areas. 
+
+
