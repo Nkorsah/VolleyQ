@@ -1,5 +1,5 @@
 import React from "react";
-import type { AppUser } from "../types/AppUser";
+import type { AppUser } from "../../../server/AppUser";
 import { useNavigate } from "react-router-dom";
 
 type NavbarProps = {

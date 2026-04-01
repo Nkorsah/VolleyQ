@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase-service";
-import { AppUser } from "../types/AppUser";
+import { AppUser } from "../../../server/AppUser";
 
 export const useMergedUser = () => {
   const [user, setUser] = useState<AppUser | null>(null);

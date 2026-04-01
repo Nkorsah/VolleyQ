@@ -2,7 +2,7 @@
 import React from "react";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
-import type { AppUser } from "../types/AppUser";
+import type { AppUser } from "../../../server/AppUser";
 
 type HomeProps = {
   user?: AppUser | null;
