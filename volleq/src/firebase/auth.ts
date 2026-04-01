@@ -13,6 +13,7 @@ import {
 // ----------------------------
 type Email = string;
 type Password = string;
+type Team = string;
 
 // ----------------------------
 // Auth functions

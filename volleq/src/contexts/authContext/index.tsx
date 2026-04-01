@@ -1,7 +1,7 @@
 // src/contexts/authContext/index.tsx
 import React, { useContext, ReactNode } from "react";
 import { useMergedUser } from "../../hooks/useMergedUser";
-import type { AppUser } from "../../types/AppUser";
+import type { AppUser } from "../../../../server/AppUser";
 
 // -----------------
 // Context type
