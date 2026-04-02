@@ -34,6 +34,7 @@ export type Team = {
   createdAt: string;
 };
 
+
 // export type User = {
 //   id: string;
 //   name: string;
@@ -146,3 +147,25 @@ function handleAxiosError(err: unknown): never {
   }
   throw err;
 }
+
+export type StatResult = 'win' | 'loss';
+
+export const updateTeamStats = async (teamId: string, result: StatResult): Promise<Team> => {
+  try {
+    const res = await axios.patch(`${BASE_URL}/api/update-stats/${teamId}`, { result });
+    console.log('[updateTeamStats] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const resetTeamStats = async (teamId: string): Promise<Team> => {
+  try {
+    const res = await axios.patch(`${BASE_URL}/api/reset-stats/${teamId}`);
+    console.log('[resetTeamStats] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};

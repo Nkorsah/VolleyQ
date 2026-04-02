@@ -3,8 +3,10 @@ import {
   fetchTeams,
   joinTeam as joinTeamRequest,
   deleteTeam as deleteTeamRequest,
+  updateTeamStats as updateTeamStatsRequest,
+  resetTeamStats as resetTeamStatsRequest,
 } from './api';
-import type { Team, CreateTeamRequest } from './api';
+import type { Team, CreateTeamRequest, StatResult } from './api';
 
 
 export async function createTeam(name: string): Promise<Team> {
@@ -47,4 +49,25 @@ export function isMember(team: Team, userId: string): boolean {
 
 export function getMemberCount(team: Team): number {
   return team.memberIds.length;
+}
+
+export async function recordWin(teamId: string): Promise<Team> {
+  if (!teamId) throw new Error('teamId is required');
+  return updateTeamStatsRequest(teamId, 'win');
+}
+
+export async function recordLoss(teamId: string): Promise<Team> {
+  if (!teamId) throw new Error('teamId is required');
+  return updateTeamStatsRequest(teamId, 'loss');
+}
+
+export async function resetStats(teamId: string): Promise<Team> {
+  if (!teamId) throw new Error('teamId is required');
+  return resetTeamStatsRequest(teamId);
+}
+
+export function getWinRate(team: Team): string {
+  const total = team.stats.wins + team.stats.losses;
+  if (total === 0) return '0%';
+  return `${Math.round((team.stats.wins / total) * 100)}%`;
 }
