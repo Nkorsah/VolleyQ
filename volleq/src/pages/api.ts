@@ -1,6 +1,8 @@
 // pages/api.ts
+// could use zod for type verification another time
 import axios from "axios";
 import { auth } from "../firebase/firebase-service";
+import { User } from "../types/types";
 const BASE_URL = import.meta.env.VITE_SERVER_HOST;
 
 
@@ -32,18 +34,18 @@ export type Team = {
   createdAt: string;
 };
 
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl: string;
-  role: string;
-  stats: {
-    wins: number;
-    losses: number;
-  };
-  createdAt: any;
-};
+// export type User = {
+//   id: string;
+//   name: string;
+//   email: string;
+//   avatarUrl: string;
+//   role: string;
+//   stats: {
+//     wins: number;
+//     losses: number;
+//   };
+//   createdAt: any;
+// };
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_SERVER_HOST,
@@ -53,27 +55,13 @@ api.interceptors.request.use(async (config) => { // interceptor middleware to ad
   const user = auth.currentUser;
 
   if (user) {
-    const token = await user.getIdToken();
+    const token = await user.getIdToken(); // user should already be logged in before calling this. 
     config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;
 });
 
-function handleAxiosError(err: unknown): never {
-  if (axios.isAxiosError(err)) {
-    if (err.response) {
-      console.error('Request failed:', err.response.status, err.response.statusText);
-    } else if (err.request) {
-      console.error('Network error: no response from server');
-    } else {
-      console.error('Request setup error:', err.message);
-    }
-  } else {
-    console.error('Unexpected error', err);
-  }
-  throw err;
-}
 
 export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
   try {
@@ -81,17 +69,25 @@ export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
     console.log('[createUser] success:', res.data);
     return res.data;
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err);
   }
 };
 
+
+
 export const fetchUser = async (): Promise<User> => {
   try {
-    const res = await axios.get(`${BASE_URL}/api/create-user`);
+    const res = await api.get(`/api/user`);
     console.log('[fetchUser] success:', res.data);
-    return res.data;
+    const data = res.data;
+    return {
+      ...data,
+      createdAt: data.createdAt
+        ? new Date(data.createdAt) // or .toDate() if Timestamp
+        : null,
+    };
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err);
   }
 };
 
@@ -135,3 +131,18 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
   }
 };
 
+
+function handleAxiosError(err: unknown): never {
+  if (axios.isAxiosError(err)) {
+    if (err.response) {
+      console.error('Request failed:', err.response.status, err.response.statusText);
+    } else if (err.request) {
+      console.error('Network error: no response from server');
+    } else {
+      console.error('Request setup error:', err.message);
+    }
+  } else {
+    console.error('Unexpected error', err);
+  }
+  throw err;
+}

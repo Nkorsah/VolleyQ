@@ -12,7 +12,7 @@ export const useUserStore = create<UserStore>((set) => ({
   user: null,
   setUser: (user: User) => set({ user }),
    updateUser: (updates) =>
-    set((state) => ({
+    set((state) => ({ // I do not understand this yet. 
       user: state.user
         ? {
             ...state.user,

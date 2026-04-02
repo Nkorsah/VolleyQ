@@ -4,6 +4,8 @@ import { useMergedUser } from "../hooks/useMergedUser";
 import { doSignInWithEmailAndPassword } from "../firebase/auth"; // Removed .ts extension for better resolution compatibility
 // import { useAuth } from "../contexts/authContext/index.tsx";
 import { auth } from "../firebase/firebase-service";
+import { fetchUser } from "./api";
+import { useUserStore } from "../store/user";
 
 function Login(): JSX.Element {
   const navigate = useNavigate();
@@ -16,6 +18,9 @@ function Login(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  const userState = useUserStore();
+  const setUser = useUserStore((state) => state.setUser);
+
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isLoading) return;
@@ -25,13 +30,19 @@ function Login(): JSX.Element {
       setErrorMessage("");
 
       await doSignInWithEmailAndPassword(email, password);
+      // ok make an api call to auth. Get User
 
       //error handle this
       const token = await auth.currentUser?.getIdToken(true);
 
       console.log("ID Token:", token);
 
-      // ok make an api call to auth. 
+      try {
+        const user = await fetchUser();
+        setUser(user);
+      } catch (err) {
+        console.error("Failed to fetch user:", err);
+      }
       // save jwt in state? 
 
       // useMergedUser hook will handle the state update automatically
