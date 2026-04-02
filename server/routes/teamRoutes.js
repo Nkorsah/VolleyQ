@@ -1,31 +1,44 @@
 import express from 'express';
 import { db, admin } from '../firebase.js';
+import { userAuthInfo } from './userRoutes.js';
 
 const router = express.Router();
 
 //if you see a const uid = '1234567' we gotta replace that with actual auth
+
+// can only join one team at a time.
 router.post('/create-team', async (req, res) => {
   console.log('/api/create-team called...');
   try {
-    const { name } = req.body;
+    const { name , id} = req.body; // team name
 
     if (!name || typeof name !== 'string') {
       return res.status(400).json({ message: 'name is required' });
     }
 
-    const uid = '1234567'; // need to replace this as an input. 
+     const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+    
+        if (!userfirebaseDetails) {
+          return res.status(401).json({ message: "Unauthorized or invalid token" });
+        }
+    
+        if (!name) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
 
-    const teamRef = db.collection('teams').doc();
+    const uid = userfirebaseDetails.user_id;
+    console.log('grabbing collection');
+    // const teamRef = db.collection('teams').doc();
     const team = {
-      id: teamRef.id,
+      id: id,
       name,
       ownerId: uid,
       memberIds: [uid],
       createdAt: new Date().toISOString(),
     };
 
-    await teamRef.set(team);
-    await db.collection('users').doc(uid).set({ teamIds: [teamRef.id] }, { merge: true });
+    await db.collection('teams').doc(team.id).set(team);
+    await db.collection('users').doc(uid).set({ teamIds: [team.id] }, { merge: true });
 
     console.log('Team successfully created!', team);
     res.status(201).json(team);
@@ -39,7 +52,17 @@ router.post('/create-team', async (req, res) => {
 router.get('/teams', async (req, res) => {
   console.log('/api/teams called...');
   try {
-    const uid = '1234567';
+       const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+    
+        if (!userfirebaseDetails) {
+          return res.status(401).json({ message: "Unauthorized or invalid token" });
+        }
+    
+        if (!email || !name) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+
+    const uid = userfirebaseDetails.user_id;
 
     const snap = await db.collection('teams')
       .where('memberIds', 'array-contains', uid)

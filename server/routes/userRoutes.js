@@ -38,7 +38,7 @@ router.get('/verify-token', async (req,res) => {
     }
 })
 
-const userAuthInfo = async (authHeader) => {
+export const userAuthInfo = async (authHeader) => {
   if (!authHeader) return null;
   const idToken = authHeader.split('Bearer ')[1];
   try {
