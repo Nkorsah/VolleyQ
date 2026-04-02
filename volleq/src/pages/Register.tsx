@@ -59,7 +59,7 @@ function Register(): JSX.Element {
         // writing additional data about the user into the firestore database.
         // creating new user entity to be sent to the database. 
         const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
-          userID: uuid(),
+          userID: uuid(), // dont need this anymore. Already have jwt from firebase. 
           name: name || firebaseUser.displayName || "",
           email: email,
           avatarUrl: "https://i.pravatar.cc/40?img=58",
@@ -71,13 +71,14 @@ function Register(): JSX.Element {
         try{ // 
           const data = await createUser(newUser); // sends to firebase db. 
           console.log("User created:", data);
+          navigate("/");
         } catch (err) {
           console.error("Create user failed", err);
         }
        
 
         // Redirect after successful signup
-        navigate("/home");
+        
       } catch (error: any) {
         console.error("[REGISTER] Error:", error);
         setErrorMessage(error.message || "Registration failed");

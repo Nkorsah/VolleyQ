@@ -13,7 +13,7 @@ router.post('/create-team', async (req, res) => {
       return res.status(400).json({ message: 'name is required' });
     }
 
-    const uid = '1234567';
+    const uid = '1234567'; // need to replace this as an input. 
 
     const teamRef = db.collection('teams').doc();
     const team = {
@@ -58,24 +58,28 @@ router.put('/join-team/:teamId', async (req, res) => {
   const { teamId } = req.params;
   console.log(`/api/join-team/${teamId} called...`);
   try {
-    const uid = '1234567';
+    const uid = '12'; //user id
 
-    const teamRef = db.collection('teams').doc(teamId);
-    const teamSnap = await teamRef.get();
+    const teamRef = db.collection('teams').doc(teamId); // grabbing the team doc
+    const teamSnap = await teamRef.get(); // getting a snapshot of the specific team entity
 
     if (!teamSnap.exists) {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    await teamRef.update({
+
+    await teamRef.update({ // updating the field 
       memberIds: admin.firestore.FieldValue.arrayUnion(uid),
     });
-    await db.collection('users').doc(uid).set({
+
+    // need to check if user exists. 
+    await db.collection('users').doc(uid).set({ // adding team to the user entity
       teamIds: admin.firestore.FieldValue.arrayUnion(teamId),
     }, { merge: true });
 
     const updated = await teamRef.get();
     res.status(200).json({ id: updated.id, ...updated.data() });
+    // don't know what's going on here is it changing the id? 
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -96,7 +100,8 @@ router.delete('/delete-team/:teamId', async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    const team = teamSnap.data();
+    const team = teamSnap.data(); // team reference
+    console.log(teamSnap.data)
 
     if (team.ownerId !== uid) {
       return res.status(403).json({ message: 'Only the owner can delete a team' });

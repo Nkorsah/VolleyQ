@@ -2,9 +2,12 @@ import { useState, type JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useMergedUser } from "../hooks/useMergedUser";
 import { doSignInWithEmailAndPassword } from "../firebase/auth"; // Removed .ts extension for better resolution compatibility
+// import { useAuth } from "../contexts/authContext/index.tsx";
+import { auth } from "../firebase/firebase-service";
 
 function Login(): JSX.Element {
   const navigate = useNavigate();
+  // const {currentUser} = useAuth();
   const { user, loading } = useMergedUser();
 
   const [email, setEmail] = useState('');
@@ -22,6 +25,15 @@ function Login(): JSX.Element {
       setErrorMessage("");
 
       await doSignInWithEmailAndPassword(email, password);
+
+      //error handle this
+      const token = await auth.currentUser?.getIdToken(true);
+
+      console.log("ID Token:", token);
+
+      // ok make an api call to auth. 
+      // save jwt in state? 
+
       // useMergedUser hook will handle the state update automatically
       navigate("/home");
     } catch (error: any) {

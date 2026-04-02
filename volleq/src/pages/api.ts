@@ -1,6 +1,6 @@
 // pages/api.ts
 import axios from "axios";
-
+import { auth } from "../firebase/firebase-service";
 const BASE_URL = import.meta.env.VITE_SERVER_HOST;
 
 
@@ -45,6 +45,20 @@ export type User = {
   createdAt: any;
 };
 
+const api = axios.create({
+  baseURL: import.meta.env.VITE_SERVER_HOST,
+});
+
+api.interceptors.request.use(async (config) => { // interceptor middleware to add authentication token
+  const user = auth.currentUser;
+
+  if (user) {
+    const token = await user.getIdToken();
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
 
 function handleAxiosError(err: unknown): never {
   if (axios.isAxiosError(err)) {
@@ -61,10 +75,9 @@ function handleAxiosError(err: unknown): never {
   throw err;
 }
 
-
 export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
   try {
-    const res = await axios.post(`${BASE_URL}/api/user-create`, newUser);
+    const res = await api.post(`/api/create-user`, newUser);
     console.log('[createUser] success:', res.data);
     return res.data;
   } catch (err) {
@@ -74,7 +87,7 @@ export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
 
 export const fetchUser = async (): Promise<User> => {
   try {
-    const res = await axios.get(`${BASE_URL}/api/user-create`);
+    const res = await axios.get(`${BASE_URL}/api/create-user`);
     console.log('[fetchUser] success:', res.data);
     return res.data;
   } catch (err) {
@@ -121,3 +134,4 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
     return handleAxiosError(err);
   }
 };
+

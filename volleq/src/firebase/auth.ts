@@ -44,6 +44,13 @@ export const doSignOut = async (): Promise<void> => {
   return auth.signOut();
 };
 
+// app.auth().currentUser.getIdToken(/* forceRefresh */ true).then(function(idToken) {
+//   // Send token to your backend via HTTPS
+//   // ...
+// }).catch(function(error) {
+//   // Handle error
+// });
+
 // Optional functions (commented out):
 // export const doPasswordReset = async (email: Email) => {
 //   return sendPasswordResetEmail(auth, email);
