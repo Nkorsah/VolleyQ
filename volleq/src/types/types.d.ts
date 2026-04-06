@@ -1,6 +1,7 @@
 export interface User { // this is ther user object and stores all of the detials about ther user
 userID: string;
   name: string;
+  email: string;
   avatarUrl: string;
    role: string,
   stats: {

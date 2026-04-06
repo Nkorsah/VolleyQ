@@ -34,6 +34,9 @@ export type Team = {
   createdAt: string;
 };
 
+type settings = {
+  
+}
 
 // export type User = {
 //   id: string;
@@ -91,6 +94,25 @@ export const fetchUser = async (): Promise<User> => {
     throw handleAxiosError(err);
   }
 };
+
+// update user settings. Like change pfp and stuff. 
+export const updateUser = async (settings: Partial<User>): Promise<User> => {
+   try {
+    const res = await api.put(`/api/user/update`, settings);
+    console.log(`updating the following settings successful ${settings} data \n`, res.data);
+    const data = res.data;
+    return {
+      ...data,
+      createdAt: data.createdAt
+        ? new Date(data.createdAt) // or .toDate() if Timestamp
+        : null,
+    };
+
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
 
 
 export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {
