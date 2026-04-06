@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken'
 import { db } from '../firebase.js';
 
 import admin from 'firebase-admin';
+
 import { getDatabase, ref, set } from "firebase/database";
 import { Timestamp } from 'firebase-admin/firestore';
 import { stat } from 'fs';
@@ -22,13 +23,13 @@ router.post('/get-token', (req, res) => {
     })
 })
 
-router.get('/verify-token', async (req,res) => {
+router.get('/verify-token', async (req,res) => { // 
     // const token = req.headers['authorization']?.split('')[1] || '';
     // const secret 
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     try {
         // console.log('decoding token....')
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const decodedToken = await admin.auth().verifyIdToken(idToken); // firebase 
         req.user = decodedToken; // Token is valid; user data is now available
         console.log(decodedToken)
         res.status(200).send('Authorized!')
@@ -55,7 +56,7 @@ router.post('/create-user', async (req, res) => {
   try {
     const { name, email, avatarUrl, createdAt, teamID, role, stats } = req.body;
 
-    const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+    const userfirebaseDetails = await userAuthInfo(req.headers.authorization); // grabs token . decodes it. has information about user
 
     if (!userfirebaseDetails) {
       return res.status(401).json({ message: "Unauthorized or invalid token" });
@@ -99,11 +100,13 @@ router.post('/create-user', async (req, res) => {
 // Get Users
 router.get('/user', async (req, res) => {
   try {
+    console.log(req.headers.authorization)
     const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
     const userID = userfirebaseDetails.user_id;
+    console.log(`Getting user with ID ${userfirebaseDetails.email}`)
 
     const userDoc = await db.collection("users").doc(userID).get();
-
+    console.log(`Sending user entity ${userDoc.data}`)
     res.status(200).json(userDoc.data());
   } catch (err) {
     res.status(500).json({ message: 'Internal Server Error' });
@@ -122,6 +125,73 @@ router.get('/user/:id', async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
+router.put('/user/update', async (req, res) => {
+  console.log("/api/create-user called");
+  try {
+    // user must exist. 
+    // const { name, email, avatarUrl, createdAt, teamID, role, stats } = req.body;
+
+    const userfirebaseDetails = await userAuthInfo(req.headers.authorization); // grabs token . decodes it. has information about user
+
+    if (!userfirebaseDetails) {
+      return res.status(401).json({ message: "Unauthorized or invalid token" });
+    }
+
+    console.log("grabbing user id from token..")
+    const userID = userfirebaseDetails.user_id;
+
+    // grab the user by id. refrence 
+    // update fields. 
+    // i think that I need to verify that it is the right type. I'll do this for now though. 
+
+    const allowedFields = ["name", "avatarUrl"];
+
+    // updating allowed fields from body
+    const update = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        update[key] = req.body[key];
+      }
+    }
+
+    // verifying invalid fields 
+    const receivedFields = Object.keys(req.body);
+
+    const invalidFields = receivedFields.filter(
+      (key) => !allowedFields.includes(key)
+    );
+
+    if (invalidFields.length > 0) {
+      console.warn("Unexpected update fields!:", invalidFields);
+    }
+
+
+    // after parsing the update input. 
+
+    console.log(`here's the update: ${JSON.stringify(update)}`)
+    const userRef = db.collection("users").doc(userID);
+
+    const updateInfo = await userRef.update(update) //
+    console.log("updateInfo")
+  
+    // optional: verify the write
+    const docSnap = await userRef.get();
+    // if (!docSnap.exists) {
+    //   console.error("Document not created!");
+    //   return res.status(500).json({ message: "Failed to create user in Firestore" });
+    // }
+
+    console.log("User updated successfully:", docSnap.data());
+    res.status(200).json(docSnap.data());
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+//
 // Update User
 // router.put('/user/:userId', (req, res) => {
 //     const { userId } = req.params;

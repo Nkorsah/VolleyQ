@@ -10,3 +10,5 @@ export type AppUser = User & { // this is ther user object and stores all of the
   };
   // Add any other custom fields here, e.g. role, stats
 };
+
+// boutta delete this

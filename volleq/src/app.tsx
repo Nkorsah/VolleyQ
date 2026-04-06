@@ -3,15 +3,9 @@ import Navbar from "./components/Navbar";
 import { useAuth } from './contexts/authContext/index.tsx';
 import { doSignOut } from './firebase/auth.ts';
 import { useNavigate } from "react-router-dom";
-import { useUserStore } from "./store/user.ts";
 
 function App(): JSX.Element {
-  // const { currentUser, userLoggedIn, loading} = useAuth();
-  // I should pull the user here too. 
-  const currentUser = useUserStore((state) => state.user); // grabbing current state of user. 
-
-  console.log("user info from store is: " + JSON.stringify(currentUser, null, 2));
-
+  const { currentUser, userLoggedIn, loading} = useAuth();
   const navigate = useNavigate();
   // still have to merge the user. 
 
