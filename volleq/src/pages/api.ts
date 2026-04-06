@@ -32,6 +32,10 @@ export type Team = {
   ownerId: string;
   memberIds: string[];
   createdAt: string;
+  stats: {
+    wins: number;
+    losses: number;
+  }
 };
 
 
@@ -95,7 +99,7 @@ export const fetchUser = async (): Promise<User> => {
 
 export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {
   try {
-    const res = await axios.post(`${BASE_URL}/api/create-team`, newTeam);
+    const res = await api.post(`/api/create-team`, newTeam);
     console.log('[createTeam] success:', res.data);
     return res.data;
   } catch (err) {
@@ -103,9 +107,10 @@ export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {
   }
 };
 
+
 export const fetchTeams = async (): Promise<Team[]> => {
   try {
-    const res = await axios.get(`${BASE_URL}/api/teams`);
+    const res = await api.get(`/api/teams`);
     console.log('[fetchTeams] success:', res.data);
     return res.data;
   } catch (err) {
@@ -115,7 +120,7 @@ export const fetchTeams = async (): Promise<Team[]> => {
 
 export const joinTeam = async (teamId: string): Promise<Team> => {
   try {
-    const res = await axios.put(`${BASE_URL}/api/join-team/${teamId}`);
+    const res = await api.put(`/api/join-team/${teamId}`);
     console.log('[joinTeam] success:', res.data);
     return res.data;
   } catch (err) {
@@ -125,7 +130,7 @@ export const joinTeam = async (teamId: string): Promise<Team> => {
 
 export const deleteTeam = async (teamId: string): Promise<void> => {
   try {
-    await axios.delete(`${BASE_URL}/api/delete-team/${teamId}`);
+    await api.delete(`/api/delete-team/${teamId}`);
     console.log('[deleteTeam] success');
   } catch (err) {
     return handleAxiosError(err);
@@ -152,7 +157,7 @@ export type StatResult = 'win' | 'loss';
 
 export const updateTeamStats = async (teamId: string, result: StatResult): Promise<Team> => {
   try {
-    const res = await axios.patch(`${BASE_URL}/api/update-stats/${teamId}`, { result });
+    const res = await api.patch(`/api/update-stats/${teamId}`, { result });
     console.log('[updateTeamStats] success:', res.data);
     return res.data;
   } catch (err) {
@@ -162,7 +167,7 @@ export const updateTeamStats = async (teamId: string, result: StatResult): Promi
 
 export const resetTeamStats = async (teamId: string): Promise<Team> => {
   try {
-    const res = await axios.patch(`${BASE_URL}/api/reset-stats/${teamId}`);
+    const res = await api.patch(`/api/reset-stats/${teamId}`);
     console.log('[resetTeamStats] success:', res.data);
     return res.data;
   } catch (err) {

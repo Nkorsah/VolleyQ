@@ -1,5 +1,6 @@
 import express from 'express';
 import { db, admin } from '../firebase.js';
+import { userAuthInfo } from './userRoutes.js'
 
 const router = express.Router();
 
@@ -124,14 +125,77 @@ router.delete('/delete-team/:teamId', async (req, res) => {
   }
 });
 
-/*router.patch('/update-stats/:teamId', async (req, res) =>{
+router.patch('/update-stats/:teamId', async (req, res) =>{
   const { teamId } = req.params;
   const { result } = req.body;
   console.log(`api.update-stats/{${teamId} called...`);
+  const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+  if (!userfirebaseDetails){
+    return res.status(401).json({ message: 'Unauthorized or invalid token'});
+  }
   if (result !== 'win' && result !== 'loss'){
-    return res.status(400).json({ message: 'Only the '})
+    return res.status(400).json({ message: 'result must be win or loss'});
+  }
+  try{
+    const uid = '1234567';
+
+    const teamRef = db.collection('teams').doc(teamId);
+    const teamSnap = await teamRef.get();
+    if (!teamSnap.exists) {
+     return res.status(404).json({ message: 'Team not found' });
+    }
+
+    const team = teamSnap.data();
+
+    if (team.ownerId !== uid) {
+      return res.status(403).json({ message: 'Only the owner can update stats' });
+    }
+
+    await teamRef.update({
+      [`stats.${result}s`]: admin.firestore.FieldValue.increment(1),
+    });
+
+    const updated = await teamRef.get();
+    res.status(200).json({ id: updated.id, ...updated.data() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+}); 
+
+router.patch('/reset-stats/:teamId', async (req, res) => {
+  const { teamId } = req.params;
+  const { results } = req.body;
+  console.log(`api.reset-stats/{${teamId} called...`);
+  const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+  if (!userfirebaseDetails){
+    return res.status(401).json({ message: 'Unauthorized or invalid token'});
   }
 
-}); */
+  if (result !== 'win' && result !== 'loss'){
+    return res.status(400).json({ message: 'result must be win or loss'});
+  }
+  try{
+    const uid = '1234567';
+
+    const teamRef = db.collection('teams').doc(teamId);
+    const teamSnap = await teamRef.get();
+    if (!teamSnap.exists) {
+     return res.status(404).json({ message: 'Team not found' });
+    }
+    const team = teamSnap.data();
+
+    if (team.ownerId !== uid) {
+      return res.status(403).json({ message: 'Only the owner can update stats' });
+    }
+
+    await teamRef.update({ stats: {wins: 0, losses: 0} })
+    const updated = await teamRef.get()
+    res.status(200).json({ id: updated.id, ...updated.data() })
+  } catch(err){
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 export default router;

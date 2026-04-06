@@ -20,6 +20,10 @@ const mockTeam: Team = {
   ownerId: 'user-1',
   memberIds: ['user-1', 'user-2'],
   createdAt: '2024-01-01T00:00:00.000Z',
+  stats: {
+    wins: 10,
+    losses: 5
+  }
 };
 
 const mockTeam2: Team = {
@@ -28,6 +32,10 @@ const mockTeam2: Team = {
   ownerId: 'user-3',
   memberIds: ['user-3'],
   createdAt: '2024-01-02T00:00:00.000Z',
+  stats: {
+    wins: 0,
+    losses: 0
+  }
 };
 
 beforeEach(() => {
