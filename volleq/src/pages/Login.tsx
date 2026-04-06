@@ -18,8 +18,7 @@ function Login(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const userState = useUserStore();
-  const setUser = useUserStore((state) => state.setUser);
+  const setUser = useUserStore((state) => state.setUser); // more concise
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,15 +37,16 @@ function Login(): JSX.Element {
       console.log("ID Token:", token);
 
       try {
-        const user = await fetchUser();
-        setUser(user);
+        const userData = await fetchUser();
+        setUser(userData);
+        navigate("/home");
       } catch (err) {
-        console.error("Failed to fetch user:", err);
+        console.error("Profile fetch failed:", err);
       }
       // save jwt in state? 
 
       // useMergedUser hook will handle the state update automatically
-      navigate("/home");
+      // navigate("/home"); changed so navigation happens when userdata is fetched
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMessage(error.message || "Login failed");
