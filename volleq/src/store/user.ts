@@ -1,6 +1,18 @@
-import { User } from "../types/types";
+// import { User } from "../types/types";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+
+export interface User {
+  uid: string;
+  name: string;
+  avatarUrl: string;
+  email?: string;
+  teamId?: string | null; 
+  stats: {
+    gamesPlayed: number;
+    wins: number;
+  };
+}
 
 interface UserStore {
   user: User | null;
