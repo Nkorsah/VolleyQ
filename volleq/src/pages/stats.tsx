@@ -22,7 +22,7 @@ function GeminiPage(): JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-[#e6d6a6]">
-      <Navbar user={currentUser} onLogout={handleLogout} />
+      <Navbar/>
       {/* Hero
       <main className="flex-1 flex flex-col items-center justify-center text-center">
         <h1 className="text-5xl mb-10">This is the map page</h1>
