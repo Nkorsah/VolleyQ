@@ -33,7 +33,7 @@ function MapPage(): JSX.Element {
   if (showFullDetails && previewLocation) {
     return (
       <div className="h-screen flex flex-col bg-[#fdf2d1]">
-        <Navbar user={currentUser} onLogout={handleLogout} />
+        <Navbar/>
         <main className="flex-1 flex flex-col relative bg-cover bg-center overflow-y-auto"
           style={{ backgroundImage: `linear-gradient(rgba(253, 242, 209, 0.7), rgba(253, 242, 209, 0.7)), url('/gym-bg.jpg')` }}>
           
@@ -59,7 +59,7 @@ function MapPage(): JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-[#fdf2d1]">
-      <Navbar user={currentUser} onLogout={handleLogout} />
+      <Navbar/>
       
       <main className="flex flex-1 overflow-hidden">
         {/* --- CONDITIONAL LOGIC FOR SIDEBAR VS PREVIEW --- */}

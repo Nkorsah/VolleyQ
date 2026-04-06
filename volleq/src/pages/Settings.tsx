@@ -2,10 +2,11 @@
 import type { JSX } from "react";
 import Navbar from "../components/Navbar";
 // import { useAuth } from "../contexts/authContext/index.tsx";
-import { doSignOut } from "../firebase/auth.ts";
+import { doDeleteUserAuth, doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
+import { deleteUserDataDB } from "../api/api.ts";
 // import { useTeamStore } from "../stores/useTeamStore";
 
 function Settings(): JSX.Element {
@@ -21,6 +22,29 @@ function Settings(): JSX.Element {
       navigate("/");
     } catch (error) {
       console.error("Logout failed:", error);
+    }
+  };
+
+  const deleteUser = async () => {
+    try {
+      // 1. Delete DB data (needs valid token)
+      try{
+        await deleteUserDataDB();
+      } catch (error){
+        console.error("delete from DB failed:", error);
+      }
+      
+      
+      // 2. Delete Firebase Auth user
+       await doDeleteUserAuth();
+
+      // 3. Clear frontend state + redirect
+      // await handleLogout();
+      clearUser();  // Wipe user from Zustand
+      resetTeam();  // Wipe team from Zustand
+      navigate("/");
+    } catch (error) {
+      console.error("delete failed:", error);
     }
   };
 
@@ -74,7 +98,9 @@ function Settings(): JSX.Element {
             >
               Log Out
             </button>
-            <button className="w-full mt-3 px-4 py-3 border-2 border-black rounded-2xl bg-red-400 font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <button 
+            onClick={deleteUser}
+            className="w-full mt-3 px-4 py-3 border-2 border-black rounded-2xl bg-red-400 font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
               Delete Account
             </button>
           </section>
