@@ -5,8 +5,10 @@ import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
 // import { db } from "../firebase/firebase-service";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 // import axios from "axios";
-import { createUser } from "./api.ts";
-import { v4 as uuid } from 'uuid'
+import { createUser } from "../api/api.ts";
+import { v4 as uuid } from "uuid";
+import { useMergedUser } from "../hooks/useMergedUser.tsx";
+import { useUserStore } from "../store/user.ts";
 
 // const uuidFromUuidV4 = () => {
 //   const newUuid = uuid()
@@ -17,6 +19,7 @@ import { v4 as uuid } from 'uuid'
 function Register(): JSX.Element {
   const navigate = useNavigate();
   const { userLoggedIn } = useAuth();
+  const setJustRegistered = useUserStore((s) => s.setJustRegistered);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +29,7 @@ function Register(): JSX.Element {
 
   const [name, setName] = useState("");
 
-  // console.log(uuid()) // user id.  
+  // console.log(uuid()) // user id.
   // console.log(uuidv4())
   // const [responseMessage, setResponseMessage] = useState("");
 
@@ -44,7 +47,7 @@ function Register(): JSX.Element {
 
     if (!isSigningUp) {
       try {
-        console.log(name)
+        console.log(name);
         setIsSigningUp(true);
         setIsLoading(true);
         setErrorMessage("");
@@ -57,28 +60,29 @@ function Register(): JSX.Element {
         console.log(firebaseUser);
 
         // writing additional data about the user into the firestore database.
-        // creating new user entity to be sent to the database. 
-        const newUser = { // Need to give a unique ID. I can create a separate file for requests! 
-          userID: uuid(), // dont need this anymore. Already have jwt from firebase. 
+        // creating new user entity to be sent to the database.
+        const newUser = {
+          // Need to give a unique ID. I can create a separate file for requests!
+          userID: uuid(), // dont need this anymore. Already have jwt from firebase.
           name: name || firebaseUser.displayName || "",
           email: email,
           avatarUrl: "https://i.pravatar.cc/40?img=58",
           role: "player",
           stats: { wins: 0, losses: 0 },
-          createdAt: serverTimestamp()
-        }
+          createdAt: serverTimestamp(),
+        };
 
-        try{ // 
-          const data = await createUser(newUser); // sends to firebase db. 
+        try {
+          //
+          const data = await createUser(newUser); // sends to firebase db.
           console.log("User created:", data);
+          setJustRegistered(true);
           navigate("/");
         } catch (err) {
           console.error("Create user failed", err);
         }
-       
 
         // Redirect after successful signup
-        
       } catch (error: any) {
         console.error("[REGISTER] Error:", error);
         setErrorMessage(error.message || "Registration failed");
@@ -91,7 +95,7 @@ function Register(): JSX.Element {
 
   // 🔁 Redirect if already logged in
   if (userLoggedIn) {
-    console.log("[REGISTER] Redirecting to /home");
+    console.log("[REGISTER] Redirecting to login");
     return <Navigate to="/" replace={true} />;
   }
 
@@ -102,9 +106,15 @@ function Register(): JSX.Element {
         <div className="text-2xl font-bold">Logo</div>
 
         <div className="flex items-center gap-8">
-          <a href="#" className="font-semibold">Home</a>
-          <a href="#" className="font-semibold">Profile</a>
-          <a href="#" className="font-semibold">Settings</a>
+          <a href="#" className="font-semibold">
+            Home
+          </a>
+          <a href="#" className="font-semibold">
+            Profile
+          </a>
+          <a href="#" className="font-semibold">
+            Settings
+          </a>
 
           <button className="border border-black px-4 py-2 rounded-lg">
             Logout
