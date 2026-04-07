@@ -2,50 +2,39 @@ import { useState, useRef, JSX } from "react";
 import Navbar from "../components/Navbar";
 import { useUserStore } from "../store/user.ts";
 
-// --- TYPES ---
-interface Badge {
-  id: number;
-  name: string;
-  icon: string;
-  description: string;
-  receivedDate: string;
-}
-
-const BADGES: Badge[] = [
-  { id: 1, name: "Philly Local", icon: "🔔", description: "Played 5+ games in the Philadelphia area.", receivedDate: "Oct 12, 2025" },
-  { id: 2, name: "Win Streak", icon: "🔥", description: "Won 3 consecutive matches in a single day.", receivedDate: "Jan 05, 2026" },
-  { id: 3, name: "Road Warrior", icon: "🚗", description: "Participated in tournaments across 3 different cities.", receivedDate: "Feb 14, 2026" },
-  { id: 4, name: "OG Player", icon: "🛡️", description: "Member of the community since the 2024 launch.", receivedDate: "Aug 20, 2024" },
-];
-
 function Profile(): JSX.Element {
   const currentUser = useUserStore((state) => state.user);
   
   // --- STATE ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   
   const [name, setName] = useState(currentUser?.name || "Christine Smith");
   const [location, setLocation] = useState("Philadelphia, PA");
-  const [profilePic, setProfilePic] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name}`);
+  const [skillLevel, setSkillLevel] = useState("Intermediate"); 
+  
+  const [profilePic, setProfilePic] = useState(currentUser?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name}`);
   const [bannerPic, setBannerPic] = useState(""); 
   
   const [privacy, setPrivacy] = useState({
     showLocation: true,
     showStats: true,
-    showBadges: true,
+    showSkill: true,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  // --- IMAGE HELPERS ---
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'banner') => {
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      type === 'profile' ? setProfilePic(url) : setBannerPic(url);
+      setProfilePic(url);
     }
+  };
+
+  const getSkillColor = (level: string) => {
+    if (level === 'Beginner') return 'bg-green-400';
+    if (level === 'Intermediate') return 'bg-yellow-400';
+    return 'bg-red-500 text-white';
   };
 
   return (
@@ -66,12 +55,25 @@ function Profile(): JSX.Element {
             </div>
           </div>
 
-          <div className="pt-20 pb-8 px-8 flex flex-col md:flex-row justify-between items-end gap-6">
-            <div className="text-left">
-              <h1 className="text-5xl font-black italic uppercase tracking-tighter">{name}</h1>
-              <p className="text-lg font-bold text-gray-700">
-                {privacy.showLocation ? `📍 ${location}` : "📍 Location Hidden"}
-              </p>
+          <div className="pt-20 pb-8 px-8 flex flex-col md:flex-row justify-between items-end gap-6 text-left">
+            <div className="flex-1 space-y-2">
+              <h1 className="text-5xl font-black italic uppercase tracking-tighter leading-none">
+                {name}
+              </h1>
+              
+              <div className="flex flex-col gap-2">
+                <p className="text-lg font-bold text-gray-700">
+                  {privacy.showLocation ? `📍 ${location}` : "📍 Location Hidden"}
+                </p>
+                
+                {privacy.showSkill && (
+                  <div className="flex">
+                    <span className={`px-3 py-1 border-2 border-black rounded-full text-[10px] font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${getSkillColor(skillLevel)}`}>
+                      Skill: {skillLevel}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <button 
@@ -83,55 +85,20 @@ function Profile(): JSX.Element {
           </div>
         </div>
 
-        {/* --- STATS & BADGES --- */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-          {privacy.showStats && (
-            <div className="md:col-span-1 flex flex-col gap-4">
-              <div className="bg-black text-white p-6 rounded-2xl border-2 border-white/20 text-left">
-                <p className="text-xs font-bold uppercase opacity-60">Matches Played</p>
-                <p className="text-4xl font-black italic">42</p>
-              </div>
-              <div className="bg-orange-500 text-white p-6 rounded-2xl border-4 border-black text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <p className="text-xs font-bold uppercase">Win Rate</p>
-                <p className="text-4xl font-black italic">68%</p>
-              </div>
+        {/* --- STATS SECTION --- */}
+        {privacy.showStats && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+            <div className="bg-black text-white p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+              <p className="text-xs font-bold uppercase opacity-60 mb-2 text-white/60">Matches Played</p>
+              <p className="text-6xl font-black italic">42</p>
             </div>
-          )}
-
-          {privacy.showBadges && (
-            <div className="md:col-span-2 bg-[#f5e7b2] p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-              <h3 className="text-2xl font-black uppercase mb-6 italic text-left">My Achievements</h3>
-              <div className="flex flex-wrap gap-6">
-                {BADGES.map((badge) => (
-                  <button 
-                    key={badge.id} 
-                    onClick={() => setSelectedBadge(badge)}
-                    className="w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center text-3xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:scale-110 transition-transform active:translate-y-1 active:shadow-none"
-                  >
-                    {badge.icon}
-                  </button>
-                ))}
-              </div>
+            <div className="bg-orange-500 text-white p-8 rounded-3xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+              <p className="text-xs font-bold uppercase mb-2">Win Rate</p>
+              <p className="text-6xl font-black italic">68%</p>
             </div>
-          )}
-        </div>
-      </main>
-
-      {/* --- BADGE DETAIL MODAL --- */}
-      {selectedBadge && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white border-4 border-black rounded-[32px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] p-8 max-w-sm w-full text-center relative animate-in zoom-in duration-200">
-            <button onClick={() => setSelectedBadge(null)} className="absolute top-4 right-6 text-2xl font-black">×</button>
-            <div className="w-24 h-24 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center text-5xl mx-auto mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                {selectedBadge.icon}
-            </div>
-            <h3 className="text-2xl font-black uppercase italic mb-1">{selectedBadge.name}</h3>
-            <p className="text-xs font-bold text-gray-500 uppercase mb-4 tracking-widest">Earned {selectedBadge.receivedDate}</p>
-            <p className="font-bold text-gray-700 leading-tight mb-6">{selectedBadge.description}</p>
-            <button onClick={() => setSelectedBadge(null)} className="w-full py-3 bg-black text-white font-black uppercase rounded-xl">Awesome!</button>
           </div>
-        </div>
-      )}
+        )}
+      </main>
 
       {/* --- EDIT MODAL --- */}
       {isEditModalOpen && (
@@ -144,41 +111,78 @@ function Profile(): JSX.Element {
 
             <div className="grid gap-6">
               <div className="flex gap-4">
-                <button onClick={() => fileInputRef.current?.click()} className="flex-1 p-3 border-2 border-black rounded-xl font-bold bg-gray-100">Change Photo</button>
-                <button onClick={() => bannerInputRef.current?.click()} className="flex-1 p-3 border-2 border-black rounded-xl font-bold bg-gray-100">Change Banner</button>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleImage(e, 'profile')} />
-                <input type="file" ref={bannerInputRef} className="hidden" onChange={(e) => handleImage(e, 'banner')} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex-1 p-3 border-2 border-black rounded-xl font-bold bg-gray-100 uppercase text-xs">Change Photo</button>
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleImage} />
               </div>
 
               <div className="text-left space-y-4">
                 <div>
                   <label className="block font-black uppercase text-xs mb-1">Display Name</label>
-                  <input className="w-full p-3 border-2 border-black rounded-xl" value={name} onChange={(e) => setName(e.target.value)} />
+                  <input className="w-full p-3 border-2 border-black rounded-xl font-bold" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
+                
+                <div>
+                  <label className="block font-black uppercase text-xs mb-2">Skill Level</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Beginner', 'Intermediate', 'Advanced'].map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => setSkillLevel(level)}
+                        className={`p-3 border-2 border-black rounded-xl font-black uppercase text-[10px] transition-all ${
+                          skillLevel === level 
+                          ? 'bg-black text-white shadow-none' 
+                          : 'bg-white text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none'
+                        }`}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block font-black uppercase text-xs mb-1">Location</label>
-                  <input className="w-full p-3 border-2 border-black rounded-xl" value={location} onChange={(e) => setLocation(e.target.value)} />
+                  <input className="w-full p-3 border-2 border-black rounded-xl font-bold" value={location} onChange={(e) => setLocation(e.target.value)} />
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-6 rounded-2xl border-2 border-black text-left">
+              {/* PRIVACY SECTION */}
+              <div className="bg-gray-100 p-6 rounded-2xl border-2 border-black text-left">
                 <h4 className="font-black uppercase text-sm mb-4">Privacy & Visibility</h4>
-                {Object.entries(privacy).map(([key, val]) => (
-                  <div key={key} className="flex justify-between items-center py-2">
-                    <span className="font-bold text-sm uppercase">{key.replace('show', 'Show ')}</span>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-xs uppercase">Show Location</span>
                     <button 
-                      onClick={() => setPrivacy(prev => ({ ...prev, [key]: !val }))}
-                      className={`w-12 h-6 rounded-full border-2 border-black relative transition-colors ${val ? 'bg-green-400' : 'bg-gray-300'}`}
+                      onClick={() => setPrivacy(p => ({ ...p, showLocation: !p.showLocation }))}
+                      className={`w-12 h-6 rounded-full border-2 border-black relative transition-colors ${privacy.showLocation ? 'bg-green-400' : 'bg-gray-300'}`}
                     >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white border-2 border-black rounded-full transition-all ${val ? 'left-6' : 'left-0.5'}`} />
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white border-2 border-black rounded-full transition-all ${privacy.showLocation ? 'left-6' : 'left-0.5'}`} />
                     </button>
                   </div>
-                ))}
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-xs uppercase">Show Skill Level</span>
+                    <button 
+                      onClick={() => setPrivacy(p => ({ ...p, showSkill: !p.showSkill }))}
+                      className={`w-12 h-6 rounded-full border-2 border-black relative transition-colors ${privacy.showSkill ? 'bg-green-400' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white border-2 border-black rounded-full transition-all ${privacy.showSkill ? 'left-6' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-xs uppercase">Show Stats</span>
+                    <button 
+                      onClick={() => setPrivacy(p => ({ ...p, showStats: !p.showStats }))}
+                      className={`w-12 h-6 rounded-full border-2 border-black relative transition-colors ${privacy.showStats ? 'bg-green-400' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white border-2 border-black rounded-full transition-all ${privacy.showStats ? 'left-6' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <button 
                 onClick={() => setIsEditModalOpen(false)}
-                className="w-full py-4 bg-yellow-400 border-4 border-black font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none"
+                className="w-full py-4 bg-yellow-400 border-4 border-black font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none mt-4"
               >
                 Save Changes
               </button>
