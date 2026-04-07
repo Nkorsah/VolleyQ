@@ -137,6 +137,15 @@ export const updateUser = async (settings: Partial<User>): Promise<User> => {
   }
 };
 
+export const deleteUserDataDB = async (): Promise<void> => {
+  try {
+    const res = await api.delete(`/api/user/delete`);
+
+    console.log("User successfully deleted", res.data);
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
 
 
 export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {

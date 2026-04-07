@@ -44,7 +44,7 @@ router.post('/create-team', async (req, res) => {
     };
 
     await db.collection('teams').doc(team.id).set(team);
-    await db.collection('users').doc(uid).set({ teamIds: [team.id] }, { merge: true });
+    await db.collection('users').doc(uid).set({ current_teamID: team.id }, { merge: true });
 
     console.log('Team successfully created!', team);
     res.status(201).json(team);

@@ -23,7 +23,8 @@ function Login(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const setUser = useUserStore((state) => state.setUser); // more concise
+  // const userState = useUserStore();
+  const setUser = useUserStore((state) => state.setUser);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -79,7 +79,9 @@ router.post('/create-user', async (req, res) => {
     if (teamID) payload.teamID = teamID;
 
     const docRef = db.collection("users").doc(payload.userID);
+
     await docRef.set(payload);
+    console.log('created user entity in database!')
 
     // optional: verify the write
     const docSnap = await docRef.get();
@@ -97,7 +99,7 @@ router.post('/create-user', async (req, res) => {
   }
 });
 
-// Get Users
+// Get Current User
 router.get('/user', async (req, res) => {
   try {
     console.log(req.headers.authorization)
@@ -126,8 +128,11 @@ router.get('/user/:id', async (req, res) => {
   }
 });
 
+
+
+
 router.put('/user/update', async (req, res) => {
-  console.log("/api/create-user called");
+  console.log("/api/user/update called");
   try {
     // user must exist. 
     // const { name, email, avatarUrl, createdAt, teamID, role, stats } = req.body;
@@ -145,7 +150,7 @@ router.put('/user/update', async (req, res) => {
     // update fields. 
     // i think that I need to verify that it is the right type. I'll do this for now though. 
 
-    const allowedFields = ["name", "avatarUrl"];
+    const allowedFields = ["name", "avatarUrl", "email"];
 
     // updating allowed fields from body
     const update = {};
@@ -190,6 +195,24 @@ router.put('/user/update', async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 });
+
+
+
+router.delete('/user/delete', async (req, res) => {
+  try {
+    console.log(req.headers.authorization)
+    const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
+    const userID = userfirebaseDetails.user_id;
+    console.log(`Getting user ${userfirebaseDetails.user_id}`)
+
+    await db.collection("users").doc(userID).delete();
+    console.log(`user has been deleted!`)
+    res.status(200).json(`user has been deleted!`);
+  } catch (err) {
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 
 //
 // Update User
