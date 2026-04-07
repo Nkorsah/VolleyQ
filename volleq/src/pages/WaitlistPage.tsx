@@ -140,11 +140,29 @@ export default function WaitlistPage({ onBack }: Props): JSX.Element {
              </div>
           </div>
 
+          {/* GAME OVER MODAL */}
           {winner && (
             <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 animate-in fade-in zoom-in duration-300">
-               <h3 className="text-white text-7xl font-black italic mb-2 tracking-tighter uppercase">Game Over!</h3>
+               <h3 className="text-white text-7xl font-black italic mb-2 tracking-tighter uppercase leading-none">Game Over!</h3>
                <p className="text-yellow-400 text-4xl font-black uppercase mb-8">{winner} Wins!</p>
-               <button onClick={resetGame} className="bg-yellow-400 border-4 border-black px-16 py-6 font-black text-3xl shadow-[8px_8px_0px_0px_rgba(255,255,255,0.4)] active:scale-95 transition-all uppercase">
+
+               {/* FINAL SCORE DISPLAY */}
+               <div className="flex items-center gap-10 mb-12 bg-white/10 p-10 rounded-[32px] border-2 border-white/20">
+                  <div className="text-center">
+                     <p className="text-orange-400 font-black text-sm uppercase mb-1">Team A</p>
+                     <p className="text-white text-8xl font-black leading-none">{scoreA}</p>
+                  </div>
+                  <div className="text-white text-5xl font-thin opacity-30 italic">vs</div>
+                  <div className="text-center">
+                     <p className="text-blue-400 font-black text-sm uppercase mb-1">Team B</p>
+                     <p className="text-white text-8xl font-black leading-none">{scoreB}</p>
+                  </div>
+               </div>
+
+               <button 
+                onClick={resetGame} 
+                className="bg-yellow-400 border-4 border-black px-16 py-6 font-black text-3xl shadow-[8px_8px_0px_0px_rgba(255,255,255,0.4)] hover:translate-y-[-4px] active:translate-y-1 active:shadow-none transition-all uppercase"
+               >
                  New Match
                </button>
             </div>
