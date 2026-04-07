@@ -3,7 +3,7 @@ import Navbar from "../components/Navbar.tsx";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
-import MapComponent from '../maps/mapcomp';
+import { MapComponent } from '../maps/mapcomp';
 import TeamsPage from "../pages/TeamsPage";
 import WaitlistPage from "../pages/WaitlistPage";
 import HostCourtPage from "../pages/HostCourtPage";

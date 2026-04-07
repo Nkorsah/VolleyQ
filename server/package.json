@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon server.js"
+    "start": "nodemon server.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -11,13 +12,16 @@
   "description": "",
   "dependencies": {
     "@dotenvx/dotenvx": "^1.57.1",
+    "@google/generative-ai": "^0.24.1",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "firebase": "^12.10.0",
     "firebase-admin": "^13.7.0",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.2"
   },
   "type": "module",
   "devDependencies": {

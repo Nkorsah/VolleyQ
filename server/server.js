@@ -62,6 +62,7 @@ import userRoutes from './routes/userRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import markerRoutes from './routes/markerRoutes.js';
 
 
 app.use(bodyParser.json())
@@ -99,6 +100,7 @@ app.use('/api', userRoutes);
 app.use('/api', matchRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', aiRoutes);
+app.use('/api', markerRoutes); 
 
 // When we deploy this server, we'll use process.env ...
 const PORT = process.env.PORT || 8080;

@@ -38,6 +38,26 @@ export type Team = {
   }
 };
 
+export type AnalyzeTeamResponse = {
+  analysis: string;
+};
+
+export type Marker = {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type CreateMarkerRequest = {
+  lat: number;
+  lng: number;
+  label: string;
+};
+
+
 type settings = {
   
 }
@@ -192,6 +212,45 @@ export const resetTeamStats = async (teamId: string): Promise<Team> => {
     const res = await api.patch(`/api/reset-stats/${teamId}`);
     console.log('[resetTeamStats] success:', res.data);
     return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const analyzeTeam = async (teamId: string): Promise<AnalyzeTeamResponse> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/analyze-team/${teamId}`);
+    console.log('[analyzeTeam] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const createMarker = async (marker: CreateMarkerRequest): Promise<Marker> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/create-marker`, marker);
+    console.log('[createMarker] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const fetchMarkers = async (): Promise<Marker[]> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/markers`);
+    console.log('[fetchMarkers] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const deleteMarker = async (markerId: string): Promise<void> => {
+  try {
+    await axios.delete(`${BASE_URL}/api/delete-marker/${markerId}`);
+    console.log('[deleteMarker] success');
   } catch (err) {
     return handleAxiosError(err);
   }

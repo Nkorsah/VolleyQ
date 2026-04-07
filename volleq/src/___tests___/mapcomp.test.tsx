@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import MapComponent from '../maps/mapcomp';
+import { MapComponent } from '../maps/mapcomp';
 import { vi, describe, it, expect } from 'vitest';
 
 //mock setup
@@ -27,12 +27,12 @@ describe('MapComponent', () => {
   });
   //test for google map render
   it('renders the google map', () => {
-    render(<MapComponent/>);
+    render(<MapComponent userId='1234567'/>);
     expect(screen.getByTestId('mapholder')).toBeInTheDocument();
   });
   //test for google map marker render
   it('renders the map and marker', () => {
-    render(<MapComponent/>);
+    render(<MapComponent userId='1234567'/>);
     expect(screen.getByTestId('actual-map')).toBeInTheDocument();
     expect(screen.getByTestId('map-marker')).toBeInTheDocument();
   });
@@ -41,7 +41,7 @@ describe('MapComponent', () => {
     const originalEnv = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY = '';
 
-    render(<MapComponent />);
+    render(<MapComponent userId='1234567'/>);
     expect(screen.getByText('Error with API key')).toBeInTheDocument();
 
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY = originalEnv;

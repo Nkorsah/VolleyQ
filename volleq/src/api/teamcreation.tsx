@@ -5,8 +5,9 @@ import {
   deleteTeam as deleteTeamRequest,
   updateTeamStats as updateTeamStatsRequest,
   resetTeamStats as resetTeamStatsRequest,
+  analyzeTeam as analyzeTeamRequest
 } from "./api";
-import type { Team, CreateTeamRequest, StatResult } from "./api";
+import type { Team, CreateTeamRequest, StatResult, AnalyzeTeamResponse } from "./api";
 
 export async function createTeam(name: string): Promise<Team> {
   if (!name.trim()) throw new Error("Team name cannot be empty");
@@ -68,4 +69,11 @@ export function getWinRate(team: Team): string {
   const total = team.stats.wins + team.stats.losses;
   if (total === 0) return "0%";
   return `${Math.round((team.stats.wins / total) * 100)}%`;
+}
+
+export async function analyzeTeam(teamId: string): Promise<string> {
+  if (!teamId) throw new Error('teamId is required');
+
+  const { analysis } = await analyzeTeamRequest(teamId);
+  return analysis;
 }

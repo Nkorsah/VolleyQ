@@ -1,6 +1,7 @@
 import express from 'express';
 import { db, admin } from '../firebase.js';
-import { userAuthInfo } from './userRoutes.js'
+import { userAuthInfo } from './userRoutes.js';
+import gemini from '../gemini.js';
 
 const router = express.Router();
 
@@ -300,6 +301,46 @@ router.patch('/reset-stats/:teamId', async (req, res) => {
     res.status(200).json({ id: updated.id, ...updated.data() })
   } catch(err){
     console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+router.post('/analyze-team/:teamId', async (req, res) => {
+  const { teamId } = req.params;
+  console.log(`/api/analyze-team/${teamId} called...`);
+
+  try {
+    const teamRef = db.collection('teams').doc(teamId);
+    const teamSnap = await teamRef.get();
+
+    if (!teamSnap.exists) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    const team = teamSnap.data();
+    const { name, stats } = team;
+    const total = stats.wins + stats.losses;
+    const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : 0;
+
+    const prompt = `
+      Analyze the following team performance data and provide a brief, 
+      constructive analysis with key insights and recommendations:
+
+      Team Name: ${name}
+      Wins: ${stats.wins}
+      Losses: ${stats.losses}
+      Total Games: ${total}
+      Win Rate: ${winRate}%
+
+      Keep the analysis concise, around 3-4 sentences. Be encouraging but honest.
+    `;
+
+    const result = await gemini.model.generateContent(prompt);
+    const analysis = result.response.text();
+
+    res.status(200).json({ analysis });
+  } catch (err) {
+    console.error('ROUTE ERROR:', err.message, err.stack);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
