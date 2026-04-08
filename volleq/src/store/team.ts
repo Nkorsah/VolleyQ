@@ -4,7 +4,7 @@ import { Team } from '../types/types';
 interface TeamState {
   currentTeam: Team | null;
   teamMembers: string[];
-  setTeam: (teamName: string) => void;
+  setTeam: (team: Team) => void;
   addMember: (uid: string) => void;
   resetTeam: () => void;
 }
@@ -13,7 +13,7 @@ export const useTeamStore = create<TeamState>((set) => ({
   currentTeam: null,
   teamMembers: [],
   
-  setTeam: (teamName) => set({ currentTeam: teamName }),
+  setTeam: (team) => set({ currentTeam: team }),
   
   addMember: (uid) => set((state) => ({ 
     teamMembers: [...state.teamMembers, uid] 
@@ -21,3 +21,5 @@ export const useTeamStore = create<TeamState>((set) => ({
   
   resetTeam: () => set({ currentTeam: null, teamMembers: [] }),
 }));
+
+// make a snapshot here. 

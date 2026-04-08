@@ -15,6 +15,9 @@ export default function TeamsPage({ onBack }: TeamsPageProps): JSX.Element {
   // --- NEW CUSTOMIZABLE STATE ---
   const [newTeamName, setNewTeamName] = useState("Team B");
   const [maxPlayers, setMaxPlayers] = useState(5);
+  // NEW FIELDS
+  const [teamColor, setTeamColor] = useState("#60a5fa"); // default blue
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const user = useUserStore((state) => state.user);
   const updateUser = useUserStore((state) => state.updateUser);
@@ -24,8 +27,8 @@ export default function TeamsPage({ onBack }: TeamsPageProps): JSX.Element {
     setIsLoading(true);
     // Sync with your store
     setTeam(newTeamName);
-    updateUser({ teamId: `team_${Date.now()}` }); // Temporary ID generation
-    addMember(user?.uid || "guest");
+    updateUser({ teamID: `team_${Date.now()}` }); // Temporary ID generation
+    addMember(user?.userID || "guest");
     
     setTimeout(() => {
       setIsLoading(false);
@@ -34,16 +37,16 @@ export default function TeamsPage({ onBack }: TeamsPageProps): JSX.Element {
   };
 
   const handleJoinTeam = async (teamId: string, teamName: string) => {
-    if (user?.teamId) {
+    if (user?.teamID) {
       alert("Leave your current team first");
       return;
     }
 
     setIsLoading(true);
     try {
-      updateUser({ teamId: teamId });
+      updateUser({ teamID: teamId });
       setTeam(teamName);
-      addMember(user?.uid || "guest");
+      addMember(user?.userID || "guest");
       setView("lobby");
     } catch (error) {
       console.error("Join failed:", error);
@@ -110,6 +113,31 @@ export default function TeamsPage({ onBack }: TeamsPageProps): JSX.Element {
                 onChange={(e) => setNewTeamName(e.target.value)}
                 className="bg-transparent text-right outline-none font-bold border-b-2 border-black w-32 placeholder:text-blue-800/50" 
               />
+            </div>
+            <div className="flex justify-between items-center bg-[#60a5fa] border-2 border-black p-3">
+              <span className="font-bold uppercase text-sm">Team Color</span>
+              <input
+                type="color"
+                value={teamColor}
+                onChange={(e) => setTeamColor(e.target.value)}
+                className="w-10 h-10 border-2 border-black cursor-pointer"
+              />
+            </div>
+            <div className="flex justify-between items-center bg-[#60a5fa] border-2 border-black p-3">
+              <span className="font-bold uppercase text-sm">Private Team</span>
+              
+              <button
+                onClick={() => setIsPrivate(!isPrivate)}
+                className={`w-12 h-6 flex items-center border-2 border-black ${
+                  isPrivate ? "bg-green-400" : "bg-gray-300"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 bg-white border border-black transform transition-transform ${
+                    isPrivate ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

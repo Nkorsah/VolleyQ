@@ -3,12 +3,14 @@ import Navbar from "./components/Navbar";
 import { useAuth } from './contexts/authContext/index.tsx';
 import { doSignOut } from './firebase/auth.ts';
 import { useNavigate } from "react-router-dom";
-import { useUserStore } from "./store/user.ts";
+import { useUserStore, useUserSync } from "./store/user.ts";
 import volleyball from '../images/volleyball_PNG52.png'
 import "./index.css"
 
 function App(): JSX.Element {
   // const { currentUser, userLoggedIn, loading} = useAuth();
+  useUserSync();
+  
   const navigate = useNavigate();
   // still have to merge the user. 
   const currentUser = useUserStore((state) => state.user)// assuming that user is already logged in. 

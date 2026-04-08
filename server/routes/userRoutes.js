@@ -93,7 +93,7 @@ router.post('/create-user', async (req, res) => {
     }
 
     const user_stats = {
-      "gamesPlayed": 0,
+      "games_played": 0,
       "wins": 0,
       "losses": 0
     }
