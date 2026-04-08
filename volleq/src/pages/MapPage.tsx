@@ -87,7 +87,7 @@ function MapPage(): JSX.Element {
             </div>
             {/* Standard Map view on the right */}
             <div className="flex-1 relative">
-              <MapComponent />
+              <MapComponent userId='1234567'/>
             </div>
           </>
         ) : (
@@ -95,7 +95,7 @@ function MapPage(): JSX.Element {
           <div className="flex flex-1">
             {/* Left Half: Map with Heart Icon */}
             <div className="w-1/2 relative border-r border-gray-200">
-              <MapComponent />
+              <MapComponent userId='1234567'/>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-white p-4 rounded-full shadow-2xl scale-125 border-4 border-[#f7e49a]">
                   <span className="text-6xl">❤️</span>

@@ -11,7 +11,7 @@ import {
 import * as api from "../api/api";
 import type { Team } from "../api/api";
 
-vi.mock("../pages/api", () => ({
+vi.mock("../api/api", () => ({
   createTeam: vi.fn(),
   fetchTeams: vi.fn(),
   joinTeam: vi.fn(),

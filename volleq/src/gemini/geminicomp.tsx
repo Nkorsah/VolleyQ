@@ -1,4 +1,3 @@
-// client/src/components/TeamAnalysis.tsx
 import { useState } from 'react';
 import { analyzeTeam, isOwner, getWinRate } from '../api/teamcreation';
 import type { Team } from '../pages/api';
@@ -8,7 +7,7 @@ type Props = {
   userId: string;
 };
 
-export function TeamAnalysis({ team, userId }: Props) {
+export function GeminiComponent({ team, userId }: Props) {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

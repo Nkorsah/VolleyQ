@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { analyzeTeam } from '../api/teamcreation';
 
-const mockAnalyzeTeam = vi.fn();
+const { mockAnalyzeTeam } = vi.hoisted(() => ({
+  mockAnalyzeTeam: vi.fn(),
+}));
 
-vi.mock('../pages/api', () => ({
-  analyzeTeam: mockAnalyzeTeam,
+vi.mock('../api/api', () => ({
+  analyzeTeam: mockAnalyzeTeam
 }));
 
 beforeEach(() => {

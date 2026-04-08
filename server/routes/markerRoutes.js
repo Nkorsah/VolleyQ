@@ -2,7 +2,7 @@ import express from 'express';
 import { db } from '../firebase.js';
 
 const router = express.Router();
-
+//we need auth here baaaaad
 router.post('/create-marker', async (req, res) => {
   console.log('/api/create-marker called...');
   try {

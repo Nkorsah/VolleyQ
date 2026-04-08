@@ -3,12 +3,15 @@ import Navbar from "../components/Navbar.tsx";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
-import GeminiComponent from '../gemini/geminicomp';
+import { GeminiComponent } from '../gemini/geminicomp';
+import { useTeamStore } from "../store/team";
+import type { Team } from '../pages/api';
 
 function GeminiPage(): JSX.Element {
-  const { currentUser, userLoggedIn, loading } = useAuth();
+  const { currentUser, userLoggedIn, loading, currentTeam } = useAuth();
+  
   // The above details gets the current user information.
-
+  const usersTeam = useTeamStore((state) => state.currentTeam);
   const navigate = useNavigate();
   const handleLogout = async () => {
     try {
@@ -27,7 +30,7 @@ function GeminiPage(): JSX.Element {
       <main className="flex-1 flex flex-col items-center justify-center text-center">
         <h1 className="text-5xl mb-10">This is the map page</h1>
       </main> */}
-      <GeminiComponent/>
+      <GeminiComponent team={usersTeam?.id || null} userId='1234567'/>
     </div>
   );
 }
