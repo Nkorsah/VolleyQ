@@ -92,3 +92,139 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNT
 DELETE http://localhost:8080/api/user/delete
 Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjVlODJhZmI0ZWY2OWI3NjM4MzA2OWFjNmI1N2U3ZTY1MjAzYmZlOTYiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzU1MDIzMzUsInVzZXJfaWQiOiJsYkNVbDcwTW1mYmt1cnU4Y3VyUXBnbkVucmkyIiwic3ViIjoibGJDVWw3ME1tZmJrdXJ1OGN1clFwZ25FbnJpMiIsImlhdCI6MTc3NTUwMjMzNiwiZXhwIjoxNzc1NTA1OTM2LCJlbWFpbCI6InRoZWtpbmcyQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ0aGVraW5nMkBnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.UMY57yCqmKofgV8t5FrXVnY3H8t7fdPjhcgwI_2J9AWJ2gOa57zofh4okFYkHdYUEQlnkgkz24XTNWTUQS6FVGCQX8XIkremOo11POmShIsI4IIP0lGHDAk_nQDsFw3bqZg823tXxiKlKFUI4A40Mms3gvNvTovZrgKfgP74i32RZCjx8RWJi-z5jEY2WurIg8RcRWbVVNTqVOp6fWwrAkJpg0UzOB5B9ec0US7ubhBEuDCiHN3QVgPT6JvcrLvNQxBMyVfTiDCVXdVnQLEOu5zhtdedq3xrXwpaMAg1GlK0KxDpUbiAFJpb2nJnaIlCNfYlJwaYSp9mIIosLXiFMA
+
+
+###
+GET http://localhost:8080/api/teams
+Content-Type: application/json
+Authorization: Bearer test 12345
+//------------------------------------------------------------------------------------- creating user
+###
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "Johnny",
+  "email": "john@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{   
+  "name": "mike",
+  "email": "mike@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 333
+
+{   
+  "name": "sarah",
+  "email": "sarah@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 444
+
+{   
+  "name": "alex",
+  "email": "alex@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 666
+
+{   
+  "name": "emma",
+  "email": "emma@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 777
+
+{   
+  "name": "liam",
+  "email": "liam@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 888
+
+{   
+  "name": "olivia",
+  "email": "olivia@example.com"
+}
+//-------------------------------------------------------------------------------------- creating user
+###
+// gets current user with auth token details. works. Should return johnny object.
+GET http://localhost:8080/api/user
+Content-Type: application/json
+Authorization: Bearer test 555
+
+### 
+///Getting user by ID. Should be sending error when ID is incorrect
+GET http://localhost:8080/api/user/555
+Content-Type: application/json
+Authorization: Bearer test 555
+
+
+### 
+// updating the current user fields: 
+// ["name", "avatarUrl", "email"]
+
+PUT http://localhost:8080/api/user/update
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "johnny",
+  "email": "john@example.com"
+}
+
+###
+// updating a user by id. you can update the following fields. 
+// ["name", "avatarUrl", "email"]
+// this sends to an existing user with the username annoy
+PUT http://localhost:8080/api/user/update/IF21H91iYUd0xrgBg5gBUGwY9e43
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "annoying2"
+}
+
+###
+// only does it for current user.
+PUT http://localhost:8080/api/user/update/stats
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "stats": {
+     "gamesPlayed": 3,
+  "wins": 0,
+  "losses": 1
+  }
+ 
+}
+
+// delete user
+###
+DELETE http://localhost:8080/api/user/delete
+Content-Type: application/json
+Authorization: Bearer test 555
+

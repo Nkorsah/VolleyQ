@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import GeminiComponent from '../gemini/geminicomp';
 
 function GeminiPage(): JSX.Element {
-  const { currentUser, userLoggedIn, loading } = useAuth();
+  // const { currentUser, userLoggedIn, loading } = useAuth();
   // The above details gets the current user information.
 
   const navigate = useNavigate();

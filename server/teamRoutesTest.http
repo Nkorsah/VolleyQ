@@ -1,0 +1,147 @@
+
+// all you gotta send is user id and, team name and settings. Everything else is initialized
+### Create a new team under user 555
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{
+  "team_name": "Dbest",
+  "team_settings": {
+    "team_color": "#ff5733",
+    "number_of_players": 6,
+    "private": false
+  }
+}
+
+
+### // get a list of teams. In the future, I want to do this by venue. 
+GET http://localhost:8080/api/teams
+Content-Type: application/json
+Authorization: Bearer test 555
+
+### // if user owner tries to join a team that they're already on, they should get rejected
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 555
+
+### // user mike tries to join team with userid 222
+PUT http://localhost:8080/api/join-team/e95baa3f-2959-4580-b0f2-2d87a7f5f203
+Content-Type: application/json
+Authorization: Bearer test 222
+
+### // sarah joins team
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 333
+
+### // alex joins team
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 444
+
+### // emma joins team
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 666
+
+### // liam joins team
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 777
+
+### // olivia joins team
+PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 888
+
+//--------------------------- Kicking people from team now.
+
+### // owner (555) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 555
+
+### // mike (222) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 222
+
+### // sarah (333) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 333
+
+### // alex (444) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 444
+
+### // emma (666) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 666
+
+### // liam (777) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 777
+
+### // olivia (888) leaves team
+DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Authorization: Bearer test 888
+
+//-------------------------------------Kicking users
+###
+### Owner (555) kicks Mike
+DELETE http://localhost:8080/api/team/kick/222
+Authorization: Bearer test 555
+
+### Owner (555) kicks Sarah
+DELETE http://localhost:8080/api/team/kick/333
+Authorization: Bearer test 555
+
+### Owner (555) kicks Alex
+DELETE http://localhost:8080/api/team/kick/555
+Authorization: Bearer test 555
+
+### Owner (555) kicks Emma
+DELETE http://localhost:8080/api/team/kick/666
+Authorization: Bearer test 777
+
+### Owner (555) kicks Liam
+DELETE http://localhost:8080/api/team/kick/777
+Authorization: Bearer test 555
+
+### Owner (555) kicks Olivia
+DELETE http://localhost:8080/api/team/kick/888
+Authorization: Bearer test 555
+
+//--------------------- promote to leader
+###
+PUT http://localhost:8080/api/team/promote/666
+Content-Type: application/json
+Authorization: Bearer test 555
+//--------------------- changing the stats of the team
+###
+PATCH http://localhost:8080/api/update-stats/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{
+  "result": "win"
+}
+###
+PATCH http://localhost:8080/api/update-stats/e95baa3f-2959-4580-b0f2-2d87a7f5f203
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{
+  "result": "loss"
+}
+
+//------------------------------------------- reset stats 
+
+### Reset stats for team f7ba05b7-de01-41ce-bc0e-708621cc703e
+PATCH http://localhost:8080/api/reset-stats/f7ba05b7-de01-41ce-bc0e-708621cc703e
+Content-Type: application/json
+
+//--------------- delete team
+### Delete a team (leader only)
+DELETE http://localhost:8080/api/team/delete
+Authorization: Bearer test 555
+Content-Type: application/json

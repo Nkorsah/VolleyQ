@@ -10,43 +10,72 @@ import admin from 'firebase-admin';
 import { getDatabase, ref, set } from "firebase/database";
 import { Timestamp } from 'firebase-admin/firestore';
 import { stat } from 'fs';
+import { getUserID } from './teamRoutes.js';
 
-router.post('/get-token', (req, res) => {
-    const {user, password} = req.body
+// router.post('/get-token', (req, res) => {
+//     const {user, password} = req.body
     
-    const token = jwt.sign(user, password, {
-        expiresIn: '1h'
-    })
+//     const token = jwt.sign(user, password, {
+//         expiresIn: '1h'
+//     })
 
-    res.status(200).json({
-        token
-    })
-})
+//     res.status(200).json({
+//         token
+//     })
+// })
 
-router.get('/verify-token', async (req,res) => { // 
-    // const token = req.headers['authorization']?.split('')[1] || '';
-    // const secret 
-    const idToken = req.headers.authorization?.split('Bearer ')[1];
-    try {
-        // console.log('decoding token....')
-        const decodedToken = await admin.auth().verifyIdToken(idToken); // firebase 
-        req.user = decodedToken; // Token is valid; user data is now available
-        console.log(decodedToken)
-        res.status(200).send('Authorized!')
-        // next();
-    } catch (error) {
-        res.status(401).send('Unauthorized');
-    }
-})
+// router.get('/verify-token', async (req,res) => { // 
+//     // const token = req.headers['authorization']?.split('')[1] || '';
+//     // const secret 
+//     const idToken = req.headers.authorization?.split('Bearer ')[1];
+//     try {
+//         // console.log('decoding token....')
+//         const decodedToken = await admin.auth().verifyIdToken(idToken); // firebase 
+//         req.user = decodedToken; // Token is valid; user data is now available
+//         console.log(decodedToken)
+//         res.status(200).send('Authorized!')
+//         // next();
+//     } catch (error) {
+//         res.status(401).send('Unauthorized');
+//     }
+// })
 
+// Authenticates the user and decrypts the auth header token
+// if you want to bypass, use "Authorization: Bearer test 12345" header
 export const userAuthInfo = async (authHeader) => {
-  if (!authHeader) return null;
-  const idToken = authHeader.split('Bearer ')[1];
+  if (!authHeader) {
+    console.log("No auth header provided");
+    return null;
+  }
+
+  const parts = authHeader.split(' ');
+
+  if (parts[0] !== 'Bearer') {
+    console.log("Invalid auth header format:", authHeader);
+    return null;
+  }
+
+  // 🔹 CASE 1: test mode → "Bearer test 12345"
+  if (parts[1] === 'test') {
+    const fakeID = parts[2];
+    console.log(`Using test user id: ${fakeID}`);
+    return fakeID || null;
+  }
+
+  // 🔹 CASE 2: real token → "Bearer <token>"
+  if (parts.length !== 2) {
+    console.log("Invalid token format:", authHeader);
+    return null;
+  }
+
+  const idToken = parts[1];
+  console.log(`token is: ${idToken}`);
+
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    return decodedToken;
+    return decodedToken.uid; // always return userID
   } catch (error) {
-    console.log('Unauthorized:', error);
+    console.log('Unauthorized:', error.message);
     return null;
   }
 };
@@ -54,29 +83,36 @@ export const userAuthInfo = async (authHeader) => {
 router.post('/create-user', async (req, res) => {
   console.log("/api/create-user called");
   try {
-    const { name, email, avatarUrl, createdAt, teamID, role, stats } = req.body;
+    // no longer need to send stats, teamID, or createdAt from the frontend. Backend handles this.
+    const { name, email } = req.body;
 
-    const userfirebaseDetails = await userAuthInfo(req.headers.authorization); // grabs token . decodes it. has information about user
+    const userID = await getUserID(req.headers.authorization);
 
-    if (!userfirebaseDetails) {
-      return res.status(401).json({ message: "Unauthorized or invalid token" });
-    }
-
-    if (!email || !name) {
+    if (!email || !name) { // random error handling. 
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    const user_stats = {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "losses": 0
+    }
+
+    // creating the user object
     const payload = { // user entity being posted to database
-      userID: userfirebaseDetails.user_id, // from decoded token
+      userID, // from decoded token
       name,
       email,
-      avatarUrl: avatarUrl || null,
-      createdAt: createdAt || new Date().toISOString(),
-      role: role || "user",
-      stats: stats || {},
+      avatarUrl: "https://i.pravatar.cc/40?img=58",
+      host: false, // role changes the frontend pages
+      team_leader: false, 
+      teamID: null,
+      team_name: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      stats: user_stats,
     };
 
-    if (teamID) payload.teamID = teamID;
+    // if (teamID) payload.teamID = teamID;
 
     const docRef = db.collection("users").doc(payload.userID);
 
@@ -90,6 +126,7 @@ router.post('/create-user', async (req, res) => {
       return res.status(500).json({ message: "Failed to create user in Firestore" });
     }
 
+    // return the user object for the frontend. 
     console.log("User created successfully:", docSnap.data());
     res.status(200).json({ message: "New user created", data: docSnap.data() });
 
@@ -102,13 +139,12 @@ router.post('/create-user', async (req, res) => {
 // Get Current User
 router.get('/user', async (req, res) => {
   try {
-    console.log(req.headers.authorization)
-    const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
-    const userID = userfirebaseDetails.user_id;
-    console.log(`Getting user with ID ${userfirebaseDetails.email}`)
+    const userID = await getUserID(req.headers.authorization);
+    console.log(`Getting user with ID ${userID}`)
 
     const userDoc = await db.collection("users").doc(userID).get();
     console.log(`Sending user entity ${userDoc.data}`)
+
     res.status(200).json(userDoc.data());
   } catch (err) {
     res.status(500).json({ message: 'Internal Server Error' });
@@ -121,6 +157,8 @@ router.get('/user/:id', async (req, res) => {
     const { id } = req.params; // user id
 
     const userDoc = await db.collection("users").doc(id).get();
+    
+    //send error when id isn't correct. 
 
     res.status(200).json(userDoc.data());
   } catch (err) {
@@ -128,68 +166,118 @@ router.get('/user/:id', async (req, res) => {
   }
 });
 
+export const updateUser = async (userID, updateData, allowedFields) => {
+  if (!userID) throw new Error("No userID provided");
 
-
-
-router.put('/user/update', async (req, res) => {
-  console.log("/api/user/update called");
-  try {
-    // user must exist. 
-    // const { name, email, avatarUrl, createdAt, teamID, role, stats } = req.body;
-
-    const userfirebaseDetails = await userAuthInfo(req.headers.authorization); // grabs token . decodes it. has information about user
-
-    if (!userfirebaseDetails) {
-      return res.status(401).json({ message: "Unauthorized or invalid token" });
-    }
-
-    console.log("grabbing user id from token..")
-    const userID = userfirebaseDetails.user_id;
-
-    // grab the user by id. refrence 
-    // update fields. 
-    // i think that I need to verify that it is the right type. I'll do this for now though. 
-
-    const allowedFields = ["name", "avatarUrl", "email"];
-
-    // updating allowed fields from body
-    const update = {};
-    for (const key of allowedFields) {
-      if (req.body[key] !== undefined) {
-        update[key] = req.body[key];
+  const update = {};
+  for (const key of allowedFields) {
+    if (updateData[key] !== undefined) {
+      // merge nested objects like stats instead of replacing
+      const isObject = typeof updateData[key] === "object" && updateData[key] !== null;
+      if (isObject) {
+        const userRef = db.collection("users").doc(userID);
+        const docSnap = await userRef.get();
+        const existing = docSnap.exists ? docSnap.data()[key] || {} : {};
+         console.log(`Existing value for ${key} in DB:`, existing);
+        update[key] = { ...existing, ...updateData[key] };
+         console.log(`Merged value for ${key}:`, update[key]);
+      } else {
+        update[key] = updateData[key];
+         console.log(`Set value for ${key}:`, update[key]);
       }
     }
+  }
 
-    // verifying invalid fields 
-    const receivedFields = Object.keys(req.body);
+  const invalidFields = Object.keys(updateData).filter(
+    (key) => !allowedFields.includes(key)
+  );
+  if (invalidFields.length > 0) {
+    console.warn("Unexpected update fields:", invalidFields);
+  }
 
-    const invalidFields = receivedFields.filter(
-      (key) => !allowedFields.includes(key)
-    );
+  if (Object.keys(update).length === 0) {
+    console.log("No valid fields to update");
+    return null;
+  }
 
-    if (invalidFields.length > 0) {
-      console.warn("Unexpected update fields!:", invalidFields);
+  const userRef = db.collection("users").doc(userID);
+  await userRef.update(update);
+
+  const updatedSnap = await userRef.get();
+  if (!updatedSnap.exists) throw new Error("User document not found after update");
+
+  return updatedSnap.data();
+};
+
+// update current user. If I change the name, update the team entitiy too! 
+router.put('/user/update', async (req, res) => {
+  
+  console.log("/api/user/update called");
+  try {
+    const userID = await getUserID(req.headers.authorization);
+    console.log(`userid is: ${userID}`);
+
+    const allowedFields = ["name", "avatarUrl", "email"]; // specify the allowed fields to be updated
+    const updatedUser = await updateUser(userID, req.body, allowedFields);
+
+    if (!updatedUser) {
+      return res.status(400).json({ message: "No valid fields to update" });
     }
 
+    console.log("User updated successfully:", updatedUser);
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
 
-    // after parsing the update input. 
+// router.put('/user/update/stats', async (req, res) => { 
+//   console.log("/api/user/update/stats called");
+//   try {
+//     // Get userID from the auth token
+//     const userID = await getUserID(req.headers.authorization);
+//     if (!userID) {
+//       return res.status(401).json({ message: "Unauthorized or invalid token" });
+//     }
 
-    console.log(`here's the update: ${JSON.stringify(update)}`)
-    const userRef = db.collection("users").doc(userID);
+//     // Only allow the 'stats' field to be updated
+//     const allowedFields = ["stats"];
+// // 'gamesPlayed', 'wins', 'losses'
+//     // Use helper to update user
+//     const updatedUser = await updateUser(userID, req.body, allowedFields);
 
-    const updateInfo = await userRef.update(update) //
-    console.log("updateInfo")
-  
-    // optional: verify the write
-    const docSnap = await userRef.get();
-    // if (!docSnap.exists) {
-    //   console.error("Document not created!");
-    //   return res.status(500).json({ message: "Failed to create user in Firestore" });
-    // }
+//     if (!updatedUser) {
+//       return res.status(400).json({ message: "No valid fields to update" });
+//     }
 
-    console.log("User updated successfully:", docSnap.data());
-    res.status(200).json(docSnap.data());
+//     console.log("User stats updated successfully:", updatedUser);
+//     res.status(200).json(updatedUser);
 
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Internal Server Error", error: err.message });
+//   }
+// });
+// I'll also have to update user by ID too. 
+
+router.put('/user/update/:id', async (req, res) => {
+   
+  console.log("/api/user/update/:id called");
+  try {
+    const userID = req.params.id // see if id is vald
+    console.log(`userid is: ${userID}`);
+
+    const allowedFields = ["name", "avatarUrl", "email"]; // specify the allowed fields to be updated
+    // code that updates user
+    const updatedUser = await updateUser(userID, req.body, allowedFields);
+
+    if (!updatedUser) {
+      return res.status(400).json({ message: "No valid fields to update" });
+    }
+
+    console.log("User updated successfully:", updatedUser);
+    res.status(200).json(updatedUser);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal Server Error", error: err.message });
@@ -198,12 +286,10 @@ router.put('/user/update', async (req, res) => {
 
 
 
+
 router.delete('/user/delete', async (req, res) => {
   try {
-    console.log(req.headers.authorization)
-    const userfirebaseDetails = await userAuthInfo(req.headers.authorization);
-    const userID = userfirebaseDetails.user_id;
-    console.log(`Getting user ${userfirebaseDetails.user_id}`)
+   const userID = await getUserID(req.headers.authorization);
 
     await db.collection("users").doc(userID).delete();
     console.log(`user has been deleted!`)
@@ -212,6 +298,9 @@ router.delete('/user/delete', async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
+
+
 
 
 //

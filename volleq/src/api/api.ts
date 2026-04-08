@@ -7,15 +7,9 @@ const BASE_URL = import.meta.env.VITE_SERVER_HOST;
 
 
 export type CreateUserRequest = {
+  userID: string;
   name: string;
   email: string;
-  avatarUrl: string;
-  role: string;
-  stats: {
-    wins: number;
-    losses: number;
-  };
-  createdAt: any;
 };
 
 export type CreateTeamRequest = {

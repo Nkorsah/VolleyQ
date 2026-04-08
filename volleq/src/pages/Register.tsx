@@ -44,21 +44,18 @@ function Register(): JSX.Element {
       const result = await doCreateUserWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
-      // create user entity for firestore
+      // create user entity for firestore. just send the userid, name and email. Server will handle the rest
       const newUser = {
         userID: firebaseUser.uid, // better to use firebase UID than a random UUID
         name: name,
         email: email,
-        avatarUrl: "https://i.pravatar.cc/40?img=58",
-        role: "player",
-        stats: { wins: 0, losses: 0 },
-        createdAt: serverTimestamp()
       };
 
       console.log(`user is ${JSON.stringify(newUser, null, 2 )}`)
 
       // save to DB via your API helper
-      await createUser(newUser);
+      // takes in id, name, email. 
+      await createUser(newUser); // update the fields of the request new user.
 
       const justRegistered = setJustRegistered(true)
       console.log(`${justRegistered}`)
