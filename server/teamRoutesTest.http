@@ -6,7 +6,7 @@ Content-Type: application/json
 Authorization: Bearer test 555
 
 {
-  "team_name": "Dbest",
+  "team_name": "Winners",
   "team_settings": {
     "team_color": "#ff5733",
     "number_of_players": 6,
@@ -26,7 +26,7 @@ Content-Type: application/json
 Authorization: Bearer test 555
 
 ### // user mike tries to join team with userid 222
-PUT http://localhost:8080/api/join-team/e95baa3f-2959-4580-b0f2-2d87a7f5f203
+PUT http://localhost:8080/api/join-team/b47f3802-b779-4945-8b94-14eb1e2bd92b
 Content-Type: application/json
 Authorization: Bearer test 222
 
@@ -126,7 +126,7 @@ Authorization: Bearer test 555
   "result": "win"
 }
 ###
-PATCH http://localhost:8080/api/update-stats/e95baa3f-2959-4580-b0f2-2d87a7f5f203
+PATCH http://localhost:8080/api/update-stats/b47f3802-b779-4945-8b94-14eb1e2bd92b
 Content-Type: application/json
 Authorization: Bearer test 555
 

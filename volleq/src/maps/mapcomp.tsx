@@ -17,14 +17,13 @@ export function MapComponent({ userId }: Props) {
   const [pendingPos, setPendingPos] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load all markers on mount
   useEffect(() => {
     getMarkers()
       .then(setMarkers)
       .catch(() => setError('Failed to load markers'));
   }, []);
 
-  // Click on map to place a new marker
+  
   const handleMapClick = (e: any) => {
     const lat = e.detail.latLng.lat;
     const lng = e.detail.latLng.lng;
@@ -33,7 +32,6 @@ export function MapComponent({ userId }: Props) {
     setSelected(null);
   };
 
-  // Save the new marker
   const handleSaveMarker = async () => {
     if (!pendingPos) return;
     try {
@@ -45,11 +43,11 @@ export function MapComponent({ userId }: Props) {
       setMarkers(prev => [...prev, newMarker]);
       setPendingPos(null);
     } catch (err) {
-      setError('Failed to save marker');
-    }
-  };
+        setError('Failed to save marker'); 
+        setPendingPos(null);  
+  }
+};
 
-  // Delete a marker
   const handleDelete = async (markerId: string) => {
     try {
       await removeMarker(markerId);

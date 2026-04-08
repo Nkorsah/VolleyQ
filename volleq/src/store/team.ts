@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { Team } from '../types/types';
 
 interface TeamState {
-  currentTeam: string | null;
+  currentTeam: Team | null;
   teamMembers: string[];
   setTeam: (teamName: string) => void;
   addMember: (uid: string) => void;

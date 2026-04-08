@@ -32,3 +32,14 @@ userID: string;
 
 //   createdAt: Date | null;
 // }
+export type Team = {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberIds: string[];
+  createdAt: string;
+  stats: {
+    wins: number;
+    losses: number;
+  }
+};

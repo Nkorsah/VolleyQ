@@ -75,5 +75,10 @@ export async function analyzeTeam(teamId: string): Promise<string> {
   if (!teamId) throw new Error('teamId is required');
 
   const { analysis } = await analyzeTeamRequest(teamId);
+  
+  if (!analysis || analysis.trim() === '') {
+    throw new Error('No analysis returned');
+  }
+
   return analysis;
 }
