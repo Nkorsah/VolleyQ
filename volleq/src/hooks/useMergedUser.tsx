@@ -7,12 +7,14 @@ import { AppUser } from "../../../server/AppUser";
 export const useMergedUser = () => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [justRegistered, setJustRegisered] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       if (!firebaseUser) {
         setUser(null);
         setLoading(false);
+        setJustRegisered(false)
         return;
       }
 
@@ -40,5 +42,5 @@ export const useMergedUser = () => {
     return () => unsubscribe(); // Cleanup listener on unmount
   }, []);
 
-  return { user, loading };
+  return { user, loading, justRegistered, setJustRegisered };
 };

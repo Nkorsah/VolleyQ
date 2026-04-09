@@ -1,0 +1,230 @@
+// from frontend. 
+
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNTEzOGZhOTA5MzY4NWVlYmMyNDAiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzUwNzg3NDksInVzZXJfaWQiOiJXSmdQdkN0d1loVEROdloyOEIzejk1YUlsMWkxIiwic3ViIjoiV0pnUHZDdHdZaFRETnZaMjhCM3o5NWFJbDFpMSIsImlhdCI6MTc3NTA3ODc0OSwiZXhwIjoxNzc1MDgyMzQ5LCJlbWFpbCI6InRoZWZhc3QzQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ0aGVmYXN0M0BnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.YSm_dbVEc-NISblGzHcUPAV810f79hTgB6C7bv9aNTIfTTMhcRt_SsStBkbcgdUZzng-_7aqyuwv2IrZ4u4e5XZnNHEUi5sM9BraWbNYSWvJafl82BcSoBkSbcMWFC8jXXn1cugS5_UQnvG7dEFVJY2VCeKWinTY1JZpPGdu-awUlPNzOFMxFuzSouagYhvUaf22NjYU3TXSt4Jqlp2ZGxlbmDo_VKhzcuKZihPxGfOfXgRRs_xxbZKK_l8GV5c4kLYaXZr2Px6lJ70KmxDOuyipp298B8Wr-0BeV2cCsINcStGiRTprNJUtYVaVFceUkmNsi5CIjEZFBLGWS2eCzw
+
+{   
+  "name": "Johnny",
+  "email": "john@example.com",
+  "avatarUrl": "https://example.com/avatar.png",
+  "createdAt": "2026-03-26T12:00:00Z",
+  "role": "user",
+  "stats": {
+    "gamesPlayed": 10,
+    "wins": 7
+  }
+}
+
+// this makes a user create a team. I have the id of the team as 24 and the members of the team should be a list with the userID.
+###
+
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+
+{
+  "id": "24",
+  "name": "TheGreatestTeam",
+  "members": [123567],
+  "createdAt": "2026-03-26T12:00:00Z",
+  "settings": {
+    "color": "FFFF",
+    "numberOfPlayers": 8,
+    "private": false
+  }
+}
+
+// make a user join a team
+###
+PUT http://localhost:8080/api/join-team/24
+Content-Type: application/json
+###
+DELETE http://localhost:8080/api/delete-team/24
+Content-Type: application/json
+{
+  "userID":"1234567"
+}
+// probably need to make a collection called list of teams.
+// so it'll post in two different areas. 
+
+###
+GET http://localhost:8080/api/verify-token
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNTEzOGZhOTA5MzY4NWVlYmMyNDAiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzUwNzg3NDksInVzZXJfaWQiOiJXSmdQdkN0d1loVEROdloyOEIzejk1YUlsMWkxIiwic3ViIjoiV0pnUHZDdHdZaFRETnZaMjhCM3o5NWFJbDFpMSIsImlhdCI6MTc3NTA3ODc0OSwiZXhwIjoxNzc1MDgyMzQ5LCJlbWFpbCI6InRoZWZhc3QzQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ0aGVmYXN0M0BnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.YSm_dbVEc-NISblGzHcUPAV810f79hTgB6C7bv9aNTIfTTMhcRt_SsStBkbcgdUZzng-_7aqyuwv2IrZ4u4e5XZnNHEUi5sM9BraWbNYSWvJafl82BcSoBkSbcMWFC8jXXn1cugS5_UQnvG7dEFVJY2VCeKWinTY1JZpPGdu-awUlPNzOFMxFuzSouagYhvUaf22NjYU3TXSt4Jqlp2ZGxlbmDo_VKhzcuKZihPxGfOfXgRRs_xxbZKK_l8GV5c4kLYaXZr2Px6lJ70KmxDOuyipp298B8Wr-0BeV2cCsINcStGiRTprNJUtYVaVFceUkmNsi5CIjEZFBLGWS2eCzw
+
+###
+
+// this is for the user with the name bobby. 
+###
+
+GET http://localhost:8080/api/user
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNTEzOGZhOTA5MzY4NWVlYmMyNDAiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzUwOTk0NzAsInVzZXJfaWQiOiJMZUtsUEs0djd3VUdvMHhDUG51bXJCa3Q5Z1QyIiwic3ViIjoiTGVLbFBLNHY3d1VHbzB4Q1BudW1yQmt0OWdUMiIsImlhdCI6MTc3NTA5OTQ3MCwiZXhwIjoxNzc1MTAzMDcwLCJlbWFpbCI6ImJvYjJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbImJvYjJAZ21haWwuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.YVZuPkyBLzFEzYMB41hW75CJrBIcffKOcKI_HkFZfHVDAhqgQs08WZD4wFXtgQDYUu1TnHDzk5aL6n2AkgHlWikjb8i-rwWdh1Z5_d50LPF_KiSjOdqmXS9UlQqrDFqSdyy6APElAVYMOB8nJM3lgku1BbcdjvPwR8Ydvs9B8Yzl7eeljHBAjdil6lp2V9XvEeeUWvZhCQMfdBxxkxiQOpt_NOqtss0ZsZyGzXBT86QsCWszGfQ-DHcY3_jAFzG5iKZGzK5wqlpIBZIfjUaxVP_AYstIJYXpUTRfch6ME645G07xg5yqXU3RTS508PeQBDw-w8dPUlnwSKs5Ol3WRw
+
+###
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNTEzOGZhOTA5MzY4NWVlYmMyNDAiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzUxNTA3NDMsInVzZXJfaWQiOiJMZUtsUEs0djd3VUdvMHhDUG51bXJCa3Q5Z1QyIiwic3ViIjoiTGVLbFBLNHY3d1VHbzB4Q1BudW1yQmt0OWdUMiIsImlhdCI6MTc3NTE1MDc0MywiZXhwIjoxNzc1MTU0MzQzLCJlbWFpbCI6ImJvYjJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbImJvYjJAZ21haWwuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.ZLUb6E67656V1gJgUA5a-EddcSzW1vE8Md0WHmIHKPounDQlMmG7n54-6cihMj49nGly4Pk_sGWaM5OTXAtqrycEc49HOT9MVoF_4B6Spt0o4wUMK9NXSOyqaa5dMOrQ1c3u6cn5W_ZZr_A3fXy-oenwLeTZA5Rl6v32qwZVlAHIEIRYwzLNP3Xie_-rfhwJJgY8P7gUw9BaFJ8WAQaqxbkB372Kffs8ymxn0v_KGdlNZk07tj4cQz5Wz5IXbWrMq7_He3M0VB6CVJbTk6tbAfd9MZuws5h5tAqwL2NsycGBbecub6PWbt2UVAh6elPrhv-707P88VpKspzHUXCJ-g
+{
+  "id": "25",
+  "name": "TheGreatestTeam",
+  "createdAt": "2026-03-26T12:00:00Z",
+  "settings": {
+    "color": "FFFF",
+    "numberOfPlayers": 8
+  }
+}
+
+// updating a user specific field.
+###
+PUT http://localhost:8080/api/user/update
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM3MzAwNzY5YTA3ZTA1MTE2ZjdlNTEzOGZhOTA5MzY4NWVlYmMyNDAiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzUxODQ1MTMsInVzZXJfaWQiOiJZb0ZzbFJyamU2WWtFQjZpYUtCeHQxc3NmTHcxIiwic3ViIjoiWW9Gc2xScmplNllrRUI2aWFLQnh0MXNzZkx3MSIsImlhdCI6MTc3NTE4NDUxMywiZXhwIjoxNzc1MTg4MTEzLCJlbWFpbCI6Im5rYXkyMUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsibmtheTIxQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.SX4rHL78fhQs1azleSR_Na-GrpPqg_VG4as55AefHZGjMWQJg4B-KXatd4ZTyk4uesZTcIg_6nqo4ayCl84jGV3dO1GQcbWKC1dJP5bmUw8IBfnTCmzcq3fbwDd-xEgl4vPIp_UZ76WCHENoU4qU2nicFi1epTHixvuS4pGGPaesYnI5gclQP2aACBuAMGVEn58QLJoD3jXUGl-u3oIRQEumr4ooKRVpeJkZa0x9XMcTkF3gv5nUShzJ7fd5togQ0so2KlhcDr_chkwEWYh1XFKfWZHMCh9Y0kWdMjkyVEV7I7i4cYpCEYylROCaaYFiy4jmAjqakkCAMuttDUh1Aw
+
+{   
+  "name": "nana",
+  "role": "Host"
+}
+
+// now the field updates 
+
+### 
+DELETE http://localhost:8080/api/user/delete
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjVlODJhZmI0ZWY2OWI3NjM4MzA2OWFjNmI1N2U3ZTY1MjAzYmZlOTYiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdm9sbGV5cS00NjUyNCIsImF1ZCI6InZvbGxleXEtNDY1MjQiLCJhdXRoX3RpbWUiOjE3NzU1MDIzMzUsInVzZXJfaWQiOiJsYkNVbDcwTW1mYmt1cnU4Y3VyUXBnbkVucmkyIiwic3ViIjoibGJDVWw3ME1tZmJrdXJ1OGN1clFwZ25FbnJpMiIsImlhdCI6MTc3NTUwMjMzNiwiZXhwIjoxNzc1NTA1OTM2LCJlbWFpbCI6InRoZWtpbmcyQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ0aGVraW5nMkBnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.UMY57yCqmKofgV8t5FrXVnY3H8t7fdPjhcgwI_2J9AWJ2gOa57zofh4okFYkHdYUEQlnkgkz24XTNWTUQS6FVGCQX8XIkremOo11POmShIsI4IIP0lGHDAk_nQDsFw3bqZg823tXxiKlKFUI4A40Mms3gvNvTovZrgKfgP74i32RZCjx8RWJi-z5jEY2WurIg8RcRWbVVNTqVOp6fWwrAkJpg0UzOB5B9ec0US7ubhBEuDCiHN3QVgPT6JvcrLvNQxBMyVfTiDCVXdVnQLEOu5zhtdedq3xrXwpaMAg1GlK0KxDpUbiAFJpb2nJnaIlCNfYlJwaYSp9mIIosLXiFMA
+
+
+###
+GET http://localhost:8080/api/teams
+Content-Type: application/json
+Authorization: Bearer test 12345
+//------------------------------------------------------------------------------------- creating user
+###
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "Johnny",
+  "email": "john@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{   
+  "name": "mike",
+  "email": "mike@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 333
+
+{   
+  "name": "sarah",
+  "email": "sarah@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 444
+
+{   
+  "name": "alex",
+  "email": "alex@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 666
+
+{   
+  "name": "emma",
+  "email": "emma@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 777
+
+{   
+  "name": "liam",
+  "email": "liam@example.com"
+}
+
+### // creating a new user
+POST http://localhost:8080/api/create-user
+Content-Type: application/json
+Authorization: Bearer test 888
+
+{   
+  "name": "olivia",
+  "email": "olivia@example.com"
+}
+//-------------------------------------------------------------------------------------- creating user
+###
+// gets current user with auth token details. works. Should return johnny object.
+GET http://localhost:8080/api/user
+Content-Type: application/json
+Authorization: Bearer test 555
+
+### 
+///Getting user by ID. Should be sending error when ID is incorrect
+GET http://localhost:8080/api/user/555
+Content-Type: application/json
+Authorization: Bearer test 555
+
+
+### 
+// updating the current user fields: 
+// ["name", "avatarUrl", "email"]
+
+PUT http://localhost:8080/api/user/update
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "johnny",
+  "email": "john@example.com"
+}
+
+###
+// updating a user by id. you can update the following fields. 
+// ["name", "avatarUrl", "email"]
+// this sends to an existing user with the username annoy
+PUT http://localhost:8080/api/user/update/IF21H91iYUd0xrgBg5gBUGwY9e43
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "name": "annoying2"
+}
+
+###
+// only does it for current user.
+PUT http://localhost:8080/api/user/update/stats
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{   
+  "stats": {
+     "gamesPlayed": 3,
+  "wins": 0,
+  "losses": 1
+  }
+ 
+}
+
+// delete user
+###
+DELETE http://localhost:8080/api/user/delete
+Content-Type: application/json
+Authorization: Bearer test 555
+

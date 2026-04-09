@@ -1,31 +1,141 @@
 import express from 'express';
 import { db, admin } from '../firebase.js';
+import { userAuthInfo } from './userRoutes.js';
+import gemini from '../gemini.js';
+import { v4 as uuidv4 } from "uuid";
+import { updateUser } from './userRoutes.js';
 
 const router = express.Router();
 
+export const updateTeam = async (teamID, updateData, allowedFields) => {
+  if (!teamID) throw new Error("No teamID provided");
+
+  const update = {};
+
+  for (const key of allowedFields) {
+    if (updateData[key] !== undefined) {
+      const isObject = typeof updateData[key] === "object" && updateData[key] !== null;
+      if (isObject) {
+        const teamRef = db.collection("teams").doc(teamID);
+        const docSnap = await teamRef.get();
+        const existing = docSnap.exists ? docSnap.data()[key] || {} : {};
+        console.log(`Existing value for ${key} in DB:`, existing);
+        update[key] = { ...existing, ...updateData[key] }; // merge nested objects
+        console.log(`Merged value for ${key}:`, update[key]);
+      } else {
+        update[key] = updateData[key];
+        console.log(`Set value for ${key}:`, update[key]);
+      }
+    }
+  }
+
+  const invalidFields = Object.keys(updateData).filter(
+    (key) => !allowedFields.includes(key)
+  );
+  if (invalidFields.length > 0) {
+    console.warn("Unexpected update fields:", invalidFields);
+  }
+
+  if (Object.keys(update).length === 0) {
+    console.log("No valid fields to update");
+    return null;
+  }
+
+  const teamRef = db.collection("teams").doc(teamID);
+  await teamRef.update(update);
+
+  const updatedSnap = await teamRef.get();
+  if (!updatedSnap.exists) throw new Error("Team document not found after update");
+
+  return updatedSnap.data();
+};
+
 //if you see a const uid = '1234567' we gotta replace that with actual auth
+
+export const getUserID = async (authHeader) => {
+  const userFirebaseDetails = await userAuthInfo(authHeader);
+
+  if (!userFirebaseDetails) {
+    // don't use `res` here — just return null
+    return null;
+  }
+
+  console.log("grabbing user id from token..");
+
+  // If your test token returns a string directly, use it
+  // Otherwise use the uid from Firebase decoded token
+  const userID = // this is like a shortened if staement
+    typeof userFirebaseDetails === "string"
+      ? userFirebaseDetails
+      : userFirebaseDetails.uid;
+
+  return userID;
+};
+
+
+// can only join one team at a time.
 router.post('/create-team', async (req, res) => {
   console.log('/api/create-team called...');
   try {
-    const { name } = req.body;
+    const { team_name, team_settings } = req.body; // settings
 
-    if (!name || typeof name !== 'string') {
+    if (!team_name || typeof team_name !== 'string') {
       return res.status(400).json({ message: 'name is required' });
     }
 
-    const uid = '1234567';
+    const userID = await getUserID(req.headers.authorization); // get userID from firebase auth
+    console.log(`grabbing collection. and user id is.. ${userID}`);
+    // const teamRef = db.collection('teams').doc();
 
-    const teamRef = db.collection('teams').doc();
+    // examples of nested json fields
+    // const team_settings = {
+    //   team_color: 'FFFF',
+    //   number_of_players: 8,
+    //   private: true
+    // } 
+    
+    // grab user from DB
+    const userDoc = await db.collection("users").doc(userID).get();
+    const userData = userDoc.data();
+
+    const teamMember = { // creating team member entity
+      userID,
+      name: userData.name,
+      avatarUrl: userData.avatarUrl,
+      team_leader: true
+    }
+    console.log(`new team member: ${JSON.stringify(teamMember)}`)
+
+    
+    const team_members = [teamMember] // denormalized users go in here
+
+    const team_stats = {
+      wins: 0,
+      losses: 0
+    }
+    
     const team = {
-      id: teamRef.id,
-      name,
-      ownerId: uid,
-      memberIds: [uid],
-      createdAt: new Date().toISOString(),
+      teamID: uuidv4(), // unique id for the team
+      venueID: "philly", // change this later
+      team_name: team_name,
+      owner_id: userID,
+      members: team_members,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      team_settings,
+      team_stats,
     };
 
-    await teamRef.set(team);
-    await db.collection('users').doc(uid).set({ teamIds: [teamRef.id] }, { merge: true });
+    await db.collection('teams').doc(team.teamID).set(team); // creating the team document. 
+    // creating the team document from the user. 
+    const allowedFields =  ["teamID", "team_name", "team_leader"]; // updating user team name and team id
+    const updateData = { teamID: team.teamID, team_name: team.team_name , team_leader: true} // changing the fields on the user side of things
+    const updatedUser = await updateUser(userID, updateData, allowedFields);
+    
+        if (!updatedUser) {
+          return res.status(400).json({ message: "No valid fields to update" });
+        }
+    console.log("User updated with teamID:", updatedUser);
+    // await db.collection('users').doc(userID).set({ current_teamID: team.teamID }, { merge: true });
 
     console.log('Team successfully created!', team);
     res.status(201).json(team);
@@ -36,13 +146,36 @@ router.post('/create-team', async (req, res) => {
 });
 
 
-router.get('/teams', async (req, res) => {
+
+// pulling mutiple teams from db. I want to get all teams from a certain criteria
+// teams from a location
+router.get('/teams', async (req, res) => { 
   console.log('/api/teams called...');
   try {
-    const uid = '1234567';
+    const userID = await getUserID(req.headers.authorization);
+    console.log(`and user id is.. ${userID}`);
+
+    const snap = await db.collection('teams').get();
+    // const snap = await db.collection('teams')
+    //   .where('memberIds', 'array-contains', userID)
+    //   .get();
+
+    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); // What does this do? 
+    res.status(200).json(teams);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
+router.get('/team/:id', async (req, res) => { // getting team by ID
+  console.log('/api/teams called...');
+  try {
+    const userID = getUserID(req.headers.authorization);
 
     const snap = await db.collection('teams')
-      .where('memberIds', 'array-contains', uid)
+      .where('memberIds', 'array-contains', userID)
       .get();
 
     const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -53,42 +186,475 @@ router.get('/teams', async (req, res) => {
   }
 });
 
+// another user joins the team
+// if user doesn't exist, don't add them. 
+router.put('/join-team/:teamID', async (req, res) => {
+  const { teamID } = req.params;
 
-router.put('/join-team/:teamId', async (req, res) => {
-  const { teamId } = req.params;
-  console.log(`/api/join-team/${teamId} called...`);
   try {
-    const uid = '1234567';
+    // 1️⃣ Get user ID from token
+    const userID = await getUserID(req.headers.authorization);
+    if (!userID) {
+      return res.status(401).json({ message: "Unauthorized or invalid token" });
+    }
+    console.log(`User ID from token: ${userID}`);
 
-    const teamRef = db.collection('teams').doc(teamId);
+    // 2️⃣ Fetch user data
+    const userDoc = await db.collection("users").doc(userID).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const userData = userDoc.data();
+
+    // 3️⃣ Fetch team data
+    const teamRef = db.collection("teams").doc(teamID);
+    const teamDoc = await teamRef.get();
+    if (!teamDoc.exists) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    const teamData = teamDoc.data();
+    // console.log(`teamData.members is: ${JSON.stringify(teamData.members) }`)
+    const rawMembers = teamData.members;
+
+    const existingMembers = Array.isArray(rawMembers)
+      ? rawMembers
+      : rawMembers
+        ? Object.values(rawMembers)
+        : [];
+
+    console.log("Existing members array length:", existingMembers.length, existingMembers);
+    const maxPlayers = teamData.team_settings?.number_of_players || 8;
+    console.log(`maximum number of players on this team is: ${maxPlayers}`)
+    // 4️⃣ Check if team is full
+  
+    if (existingMembers.length >= maxPlayers) {
+      return res.status(400).json({ message: "Team is already full" });
+    }
+
+    // 5️⃣ Check if user is already a member
+
+  //  const existingMembers = Array.isArray(teamData.members) ? teamData.members : [];
+console.log("Existing members array:", existingMembers);
+
+const isAlreadyMember = existingMembers.some((member, index) => {
+  console.log(`Comparing member[${index}].userID:`, member.userID, "with userID:", userID);
+  return member.userID === userID;
+});
+
+console.log("Is user already a member?", isAlreadyMember);
+
+if (isAlreadyMember) {
+  return res.status(400).json({ message: "User already a member of this team" });
+}
+
+    if (existingMembers.some(member => member.userID === userID)) {
+      return res.status(400).json({ message: "User already a member of this team" });
+    }
+
+    // 6️⃣ Create new member object
+    const newMember = {
+      userID,
+      name: userData.name,
+      avatarUrl: userData.avatarUrl,
+      team_leader: false
+    };
+    console.log("Adding new member:", newMember);
+
+    // 7️⃣ Update team members array
+    await db.collection("teams").doc(teamID).update({
+  members: [...existingMembers, newMember],
+});
+    // await updateTeam(teamID, { members: [...existingMembers, newMember] }, ["members"]); // my function
+
+    // 8️⃣ Update user with team info
+    const allowedFields = ["teamID", "team_name", "team_leader"];
+    const updateData = {
+      teamID: teamData.teamID,
+      team_name: teamData.team_name,
+      team_leader: false
+    };
+    await updateUser(userID, updateData, allowedFields);
+
+    // 9️⃣ Return updated team info
+    const updatedTeamDoc = await teamRef.get();
+    res.status(200).json({ message: "Joined team successfully", team: updatedTeamDoc.data() });
+
+  } catch (err) {
+    console.error("Error in /join-team:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+router.delete('/leave-team/:teamID', async (req, res) => { // work on transfering ownership when leaving
+  const { teamID } = req.params;
+
+  try {
+    // 1️⃣ Get user ID
+    const userID = await getUserID(req.headers.authorization);
+    if (!userID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // 2️⃣ Fetch team
+    const teamRef = db.collection("teams").doc(teamID);
+    const teamDoc = await teamRef.get();
+
+    if (!teamDoc.exists) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    const teamData = teamDoc.data();
+
+    // 3️⃣ Normalize members (handle object vs array)
+    const rawMembers = teamData.members;
+    const existingMembers = Array.isArray(rawMembers)
+      ? rawMembers
+      : rawMembers
+        ? Object.values(rawMembers)
+        : [];
+
+    console.log("Members before removal:", existingMembers);
+
+    // 4️⃣ Check if user is in team
+    const isMember = existingMembers.some(
+      member => String(member.userID) === String(userID)
+    );
+
+    if (!isMember) {
+      return res.status(400).json({ message: "User is not in this team" });
+    }
+
+    // 5️⃣ Remove user from members
+    const updatedMembers = existingMembers.filter(
+      member => String(member.userID) !== String(userID)
+    );
+
+    console.log("Members after removal:", updatedMembers);
+
+    // 6️⃣ Update team
+    // await updateTeam(teamID, { members: updatedMembers }, ["members"]);
+    await teamRef.update({ // temp fix because update team doesn't replace members array
+  members: updatedMembers
+});
+
+    // 7️⃣ Clear user's team info
+    const allowedFields = ["teamID", "team_name", "team_leader"];
+    const updateData = {
+      teamID: null,
+      team_name: null,
+      team_leader: false
+    };
+
+    await updateUser(userID, updateData, allowedFields);
+
+    // 8️⃣ Return updated team
+    const updatedTeamDoc = await teamRef.get();
+
+    res.status(200).json({
+      message: "User removed from team",
+      team: updatedTeamDoc.data()
+    });
+
+  } catch (err) {
+    console.error("Error in /leave-team:", err);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: err.message
+    });
+  }
+});
+
+router.delete('/team/kick/:userID', async (req, res) => {
+  const { userID: targetUserID } = req.params;
+
+  try {
+    // 1️⃣ Get team leader ID (the one performing the kick)
+    const team_leaderID = await getUserID(req.headers.authorization);
+    if (!team_leaderID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // 2️⃣ Fetch team leader's user doc
+    const leaderDoc = await db.collection("users").doc(team_leaderID).get();
+    if (!leaderDoc.exists) {
+      return res.status(404).json({ message: "Team leader not found" });
+    }
+
+    const leaderData = leaderDoc.data();
+    const teamID = leaderData.teamID;
+
+    if (!teamID) {
+      return res.status(400).json({ message: "Team leader is not part of a team" });
+    }
+
+    // 3️⃣ Fetch team
+    const teamRef = db.collection("teams").doc(teamID);
+    const teamDoc = await teamRef.get();
+
+    if (!teamDoc.exists) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    const teamData = teamDoc.data();
+    const rawMembers = teamData.members;
+    const members = Array.isArray(rawMembers) ? rawMembers : rawMembers ? Object.values(rawMembers) : [];
+
+    // 4️⃣ Check if team_leaderID is actually the team leader
+    const leaderMember = members.find(m => m.userID === team_leaderID);
+    if (!leaderMember?.team_leader) {
+      return res.status(403).json({ message: "Only the team leader can kick members" });
+    }
+
+    // 5️⃣ Prevent kicking yourself
+    if (team_leaderID === targetUserID) {
+      return res.status(400).json({ message: "Leader cannot kick themselves" });
+    }
+
+    // 6️⃣ Check target exists
+    const targetMember = members.find(m => m.userID === targetUserID);
+    if (!targetMember) {
+      return res.status(404).json({ message: "User not in team" });
+    }
+
+    // 7️⃣ Remove target
+    const updatedMembers = members.filter(m => m.userID !== targetUserID);
+    await teamRef.update({ members: updatedMembers });
+
+    // 8️⃣ Clear kicked user's team info
+    const allowedFields = ["teamID", "team_name", "team_leader"];
+    const updateData = { teamID: null, team_name: null, team_leader: false };
+    await updateUser(targetUserID, updateData, allowedFields);
+
+    // 9️⃣ Return updated team
+    const updatedTeamDoc = await teamRef.get();
+    res.status(200).json({ message: "User kicked from team", team: updatedTeamDoc.data() });
+
+  } catch (err) {
+    console.error("Error in /kick-member:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+router.delete('/team/delete', async (req, res) => {
+  try {
+    // 1️⃣ Get team leader ID (the one requesting deletion)
+    const team_leaderID = await getUserID(req.headers.authorization);
+    if (!team_leaderID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // 2️⃣ Fetch team leader's user doc
+    const leaderDoc = await db.collection("users").doc(team_leaderID).get();
+    if (!leaderDoc.exists) {
+      return res.status(404).json({ message: "Team leader not found" });
+    }
+
+    const leaderData = leaderDoc.data();
+    const teamID = leaderData.teamID;
+
+    if (!teamID) {
+      return res.status(400).json({ message: "Team leader is not part of a team" });
+    }
+
+    // 3️⃣ Fetch team
+    const teamRef = db.collection("teams").doc(teamID);
+    const teamDoc = await teamRef.get();
+    if (!teamDoc.exists) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    const teamData = teamDoc.data();
+    const rawMembers = teamData.members;
+    const members = Array.isArray(rawMembers) ? rawMembers : rawMembers ? Object.values(rawMembers) : [];
+
+    // 4️⃣ Check if the requester is actually the team leader
+    const leaderMember = members.find(m => m.userID === team_leaderID);
+    if (!leaderMember?.team_leader) {
+      return res.status(403).json({ message: "Only the team leader can delete the team" });
+    }
+
+    // 5️⃣ Clear all members' team info
+    const allowedFields = ["teamID", "team_name", "team_leader"];
+    const updateData = { teamID: null, team_name: null, team_leader: false };
+
+    const updatePromises = members.map(m => updateUser(m.userID, updateData, allowedFields));
+    await Promise.all(updatePromises);
+
+    // 6️⃣ Delete the team document
+    await teamRef.delete();
+
+    res.status(200).json({ message: "Team successfully deleted" });
+
+  } catch (err) {
+    console.error("Error in /team/delete:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
+
+  const { newLeaderID } = req.params;
+
+  try {
+    // 1️⃣ Get team leader ID from token
+    const team_leaderID = await getUserID(req.headers.authorization);
+    if (!team_leaderID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // 2️⃣ Fetch current leader user document
+    const leaderDoc = await db.collection("users").doc(team_leaderID).get();
+    if (!leaderDoc.exists) {
+      return res.status(404).json({ message: "Current leader not found" });
+    }
+    const leaderData = leaderDoc.data();
+
+    // 3️⃣ Ensure current user is the team leader
+    if (!leaderData.team_leader) {
+      return res.status(403).json({ message: "Only current team leader can promote" });
+    }
+
+    // 4️⃣ Get the teamID from leader
+    const teamID = leaderData.teamID;
+    if (!teamID) {
+      return res.status(400).json({ message: "Leader is not part of a team" });
+    }
+
+    // 5️⃣ Fetch team
+    const teamRef = db.collection("teams").doc(teamID);
+    const teamDoc = await teamRef.get();
+    if (!teamDoc.exists) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+    const teamData = teamDoc.data();
+
+    // 6️⃣ Normalize members
+    const membersArray = Array.isArray(teamData.members)
+      ? teamData.members
+      : teamData.members
+        ? Object.values(teamData.members)
+        : [];
+
+    // 7️⃣ Check newLeaderID is in team
+    const newLeaderMember = membersArray.find(m => m.userID === newLeaderID);
+    if (!newLeaderMember) {
+      return res.status(400).json({ message: "New leader must be a member of the team" });
+    }
+
+    // 8️⃣ Update team members array
+    const updatedMembers = membersArray.map(m => {
+      if (m.userID === newLeaderID) return { ...m, team_leader: true };
+      if (m.userID === team_leaderID) return { ...m, team_leader: false };
+      return m;
+    });
+
+    await teamRef.update({ members: updatedMembers });
+
+    // 9️⃣ Update user documents
+    const allowedFields = ["team_leader"];
+    await updateUser(newLeaderID, { team_leader: true }, allowedFields);
+    await updateUser(team_leaderID, { team_leader: false }, allowedFields);
+
+    res.status(200).json({
+      message: `Team leadership transferred to user ${newLeaderID}`,
+      members: updatedMembers
+    });
+
+  } catch (err) {
+    console.error("Error in /team/promote:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+router.patch('/update-stats/:teamID', async (req, res) => {
+  const { teamID } = req.params;
+  let { result } = req.body;
+
+  console.log(`api.update-stats/${teamID} called...`);
+
+  try {
+    // 1️⃣ Validate result
+    if (result !== 'win' && result !== 'loss') {
+      return res.status(400).json({ message: 'result must be "win" or "loss"' });
+    }
+    // normalize key for Firestore
+    const resultKey = result === 'loss' ? 'losse' : 'win';
+
+    // 2️⃣ Fetch team
+    const teamRef = db.collection('teams').doc(teamID);
     const teamSnap = await teamRef.get();
-
     if (!teamSnap.exists) {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    await teamRef.update({
-      memberIds: admin.firestore.FieldValue.arrayUnion(uid),
-    });
-    await db.collection('users').doc(uid).set({
-      teamIds: admin.firestore.FieldValue.arrayUnion(teamId),
-    }, { merge: true });
+    const teamData = teamSnap.data();
 
-    const updated = await teamRef.get();
-    res.status(200).json({ id: updated.id, ...updated.data() });
+    // 3️⃣ Atomically increment team stats
+    await teamRef.update({
+      [`team_stats.${resultKey}s`]: admin.firestore.FieldValue.increment(1),
+    });
+
+    // 4️⃣ Increment each member's stats
+    const rawMembers = teamData.members;
+    const members = Array.isArray(rawMembers)
+      ? rawMembers
+      : rawMembers
+        ? Object.values(rawMembers)
+        : [];
+
+    // Loop through members and update their individual stats
+    for (const member of members) {
+      const userRef = db.collection('users').doc(member.userID);
+      await userRef.update({
+        [`stats.${resultKey}s`]: admin.firestore.FieldValue.increment(1),
+      });
+    }
+
+    // 5️⃣ Return updated team
+    const updatedSnap = await teamRef.get();
+    res.status(200).json({ id: updatedSnap.id, ...updatedSnap.data() });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 });
 
+router.patch('/reset-stats/:teamID', async (req, res) => {
+  const { teamID } = req.params;
+  console.log(`api/reset-stats/${teamID} called...`);
 
-router.delete('/delete-team/:teamId', async (req, res) => {
-  const { teamId } = req.params;
-  console.log(`/api/delete-team/${teamId} called...`);
   try {
-    const uid = '1234567';
+    // 1️⃣ Fetch the team
+    const teamRef = db.collection('teams').doc(teamID);
+    const teamSnap = await teamRef.get();
+    if (!teamSnap.exists) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
 
+    // 2️⃣ Reset the team's stats
+    await teamRef.update({
+      team_stats: {
+        wins: 0,
+        losses: 0,
+      },
+    });
+
+    // 3️⃣ Return updated team
+    const updatedSnap = await teamRef.get();
+    res.status(200).json({ id: updatedSnap.id, ...updatedSnap.data() });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
+  }
+});
+
+router.post('/analyze-team/:teamId', async (req, res) => {// Don't think I need to change this. 
+  const { teamId } = req.params;
+  console.log(`/api/analyze-team/${teamId} called...`);
+
+  try {
     const teamRef = db.collection('teams').doc(teamId);
     const teamSnap = await teamRef.get();
 
@@ -97,25 +663,29 @@ router.delete('/delete-team/:teamId', async (req, res) => {
     }
 
     const team = teamSnap.data();
+    const { name, stats } = team;
+    const total = stats.wins + stats.losses;
+    const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : 0;
 
-    if (team.ownerId !== uid) {
-      return res.status(403).json({ message: 'Only the owner can delete a team' });
-    }
+    const prompt = `
+      Analyze the following team performance data and provide a brief, 
+      constructive analysis with key insights and recommendations:
 
-    // Remove teamId from all members
-    const batch = db.batch();
-    team.memberIds.forEach(memberId => {
-      const userRef = db.collection('users').doc(memberId);
-      batch.update(userRef, {
-        teamIds: admin.firestore.FieldValue.arrayRemove(teamId),
-      });
-    });
-    batch.delete(teamRef);
-    await batch.commit();
+      Team Name: ${name}
+      Wins: ${stats.wins}
+      Losses: ${stats.losses}
+      Total Games: ${total}
+      Win Rate: ${winRate}%
 
-    res.status(200).json({ message: `Team ${teamId} deleted` });
+      Keep the analysis concise, around 3-4 sentences. Be encouraging but honest.
+    `;
+
+    const result = await gemini.model.generateContent(prompt);
+    const analysis = result.response.text();
+
+    res.status(200).json({ analysis });
   } catch (err) {
-    console.error(err);
+    console.error('ROUTE ERROR:', err.message, err.stack);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });

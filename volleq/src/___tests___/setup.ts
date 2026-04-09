@@ -1,5 +1,7 @@
 import { initializeTestEnvironment, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { setLogLevel } from 'firebase/firestore';
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 let testEnv: RulesTestEnvironment;
 
@@ -17,6 +19,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await testEnv.clearFirestore(); // reset between tests
+  cleanup();
 });
 
 afterAll(async () => {

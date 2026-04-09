@@ -3,7 +3,7 @@ import Navbar from "../components/Navbar.tsx";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doSignOut } from "../firebase/auth.ts";
 import { useNavigate } from "react-router-dom";
-import MapComponent from '../maps/mapcomp';
+import { MapComponent } from '../maps/mapcomp';
 import TeamsPage from "../pages/TeamsPage";
 import WaitlistPage from "../pages/WaitlistPage";
 import HostCourtPage from "../pages/HostCourtPage";
@@ -13,8 +13,8 @@ function MapPage(): JSX.Element {
   const navigate = useNavigate();
 
   // Navigation State
-  const [previewLocation, setPreviewLocation] = useState<string | null>(null); // Frame 60
-  const [showFullDetails, setShowFullDetails] = useState(false);               // Frame 58
+  const [previewLocation, setPreviewLocation] = useState<string | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -33,7 +33,7 @@ function MapPage(): JSX.Element {
   if (showFullDetails && previewLocation) {
     return (
       <div className="h-screen flex flex-col bg-[#fdf2d1]">
-        <Navbar user={currentUser} onLogout={handleLogout} />
+        <Navbar/>
         <main className="flex-1 flex flex-col relative bg-cover bg-center overflow-y-auto"
           style={{ backgroundImage: `linear-gradient(rgba(253, 242, 209, 0.7), rgba(253, 242, 209, 0.7)), url('/gym-bg.jpg')` }}>
           
@@ -59,14 +59,24 @@ function MapPage(): JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-[#fdf2d1]">
-      <Navbar user={currentUser} onLogout={handleLogout} />
+      <Navbar/>
       
-      <main className="flex flex-1 overflow-hidden">
-        {/* --- CONDITIONAL LOGIC FOR SIDEBAR VS PREVIEW --- */}
+      <main className="flex flex-1 overflow-hidden relative">
+        {/* --- MATCHED "BACK TO MAP" STYLING FOR HOME --- */}
+        {!previewLocation && (
+          <button 
+            onClick={() => navigate("/home")} 
+            className="absolute top-4 left-4 z-50 text-sm font-bold text-gray-600 hover:underline"
+          >
+            ← Home
+          </button>
+        )}
+
         {!previewLocation ? (
-          /* FRAME 57: Sidebar is visible */
+          /* FRAME 57: Sidebar view */
           <>
-            <div className="w-1/3 min-w-[300px] bg-white border-r border-gray-200 flex flex-col">
+            {/* Keeping pt-12 to ensure "Find a Game" doesn't overlap the button */}
+            <div className="w-1/3 min-w-[300px] bg-white border-r border-gray-200 flex flex-col pt-12"> 
               <div className="p-6">
                 <h1 className="text-3xl font-light text-gray-700">Find a Game</h1>
               </div>
@@ -85,17 +95,15 @@ function MapPage(): JSX.Element {
                 ))}
               </div>
             </div>
-            {/* Standard Map view on the right */}
             <div className="flex-1 relative">
-              <MapComponent />
+              <MapComponent userId='1234567'/>
             </div>
           </>
         ) : (
-          /* FRAME 60: Sidebar disappears, location is enlarged */
+          /* FRAME 60: Enlarged Preview (unchanged) */
           <div className="flex flex-1">
-            {/* Left Half: Map with Heart Icon */}
             <div className="w-1/2 relative border-r border-gray-200">
-              <MapComponent />
+              <MapComponent userId='1234567'/>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-white p-4 rounded-full shadow-2xl scale-125 border-4 border-[#f7e49a]">
                   <span className="text-6xl">❤️</span>
@@ -103,11 +111,10 @@ function MapPage(): JSX.Element {
               </div>
             </div>
 
-            {/* Right Half: Info & Detail Button */}
             <div className="w-1/2 flex flex-col items-center justify-center p-12 text-center bg-white relative">
               <button 
                 onClick={() => setPreviewLocation(null)} 
-                className="absolute top-6 right-8 text-3xl text-gray-400 hover:text-gray-700"
+                className="absolute top-6 right-8 text-3xl text-gray-400 hover:text-gray-700 font-bold"
               >
                 ✕
               </button>

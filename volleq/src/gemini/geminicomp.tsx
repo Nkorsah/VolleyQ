@@ -1,28 +1,26 @@
 import { useState } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { analyzeTeam, isOwner, getWinRate } from '../api/teamcreation';
+import type { Team } from '../pages/api';
 
+type Props = {
+  team: Team;
+  userId: string;
+};
 
-
-export default function GeminiComponent() {
-  const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState('');
-  const [error, setError] = useState('');
+export function GeminiComponent({ team, userId }: Props) {
+  const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAsk = async () => {
-    if (!prompt.trim()) return;
-
+  const handleAnalyze = async () => {
     setLoading(true);
-    setError('');
-    setResponse('');
-
+    setError(null);
+    setAnalysis(null);
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY ?? '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(prompt);
-      setResponse(result.response.text());
+      const result = await analyzeTeam(team.id);
+      setAnalysis(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setError('Failed to analyze team. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -30,22 +28,24 @@ export default function GeminiComponent() {
 
   return (
     <div>
-      <h1>Gemini Chat</h1>
+      <div>
+        <p>Wins: {team.stats.wins}</p>
+        <p>Losses: {team.stats.losses}</p>
+        <p>Win Rate: {getWinRate(team)}</p>
+      </div>
 
-      <textarea
-        aria-label="prompt"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Ask something..."
-        rows={4}
-      />
-
-      <button onClick={handleAsk} disabled={loading}>
-        {loading ? 'Loading...' : 'Ask'}
+      <button onClick={handleAnalyze} disabled={loading}>
+        {loading ? 'Analyzing...' : 'Analyze Performance'}
       </button>
 
-      {response && <p data-testid="response">{response}</p>}
-      {error && <p data-testid="error">Error: {error}</p>}
+      {analysis && (
+        <div>
+          <h4>Performance Analysis</h4>
+          <p>{analysis}</p>
+        </div>
+      )}
+
+      {error && <p>{error}</p>}
     </div>
   );
 }

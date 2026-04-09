@@ -2,13 +2,18 @@ import { useState, useEffect, type JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/authContext/index.tsx";
 import { doCreateUserWithEmailAndPassword } from "../firebase/auth.ts";
-import { serverTimestamp } from "firebase/firestore";
-import { createUser } from "./api.ts";
-import { v4 as uuid } from 'uuid';
+// import { db } from "../firebase/firebase-service";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+// import axios from "axios";
+import { createUser } from "../api/api.ts";
+import { v4 as uuid } from "uuid";
+import { useMergedUser } from "../hooks/useMergedUser.tsx";
+import { useUserStore } from "../store/user.ts";
 
 function Register(): JSX.Element {
   const navigate = useNavigate();
   const { userLoggedIn } = useAuth();
+  const setJustRegistered = useUserStore((s) => s.setJustRegistered);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,21 +44,23 @@ function Register(): JSX.Element {
       const result = await doCreateUserWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
-      // create user entity for firestore
+      // create user entity for firestore. just send the userid, name and email. Server will handle the rest
       const newUser = {
         userID: firebaseUser.uid, // better to use firebase UID than a random UUID
         name: name,
         email: email,
-        avatarUrl: "https://i.pravatar.cc/40?img=58",
-        role: "player",
-        stats: { wins: 0, losses: 0 },
-        createdAt: serverTimestamp()
       };
 
-      // save to DB via your API helper
-      await createUser(newUser);
+      console.log(`user is ${JSON.stringify(newUser, null, 2 )}`)
 
-      navigate("/home");
+      // save to DB via your API helper
+      // takes in id, name, email. 
+      await createUser(newUser); // update the fields of the request new user.
+
+      const justRegistered = setJustRegistered(true)
+      console.log(`${justRegistered}`)
+
+      navigate("/");
     } catch (error: any) {
       console.error("[REGISTER] Error:", error);
       setErrorMessage(error.message || "Registration failed");
@@ -67,12 +74,29 @@ function Register(): JSX.Element {
     <div className="h-screen flex flex-col bg-[#FDF0B4] font-sans overflow-hidden">
       {/* Navigation Header */}
       <header className="flex justify-between items-center px-12 py-8">
-        <div className="text-3xl font-bold text-black tracking-tight cursor-default">Logo</div>
+        <div className="text-3xl font-bold text-black tracking-tight cursor-default">
+          Logo
+        </div>
         <nav className="flex items-center gap-12">
-          <a href="#" className="text-2xl font-bold text-black hover:opacity-70 transition-opacity">Home</a>
-          <a href="#" className="text-2xl font-bold text-black hover:opacity-70 transition-opacity">About</a>
-          <a href="#" className="text-2xl font-bold text-black hover:opacity-70 transition-opacity">Contact</a>
-          <button 
+          <a
+            href="#"
+            className="text-2xl font-bold text-black hover:opacity-70 transition-opacity"
+          >
+            Home
+          </a>
+          <a
+            href="#"
+            className="text-2xl font-bold text-black hover:opacity-70 transition-opacity"
+          >
+            About
+          </a>
+          <a
+            href="#"
+            className="text-2xl font-bold text-black hover:opacity-70 transition-opacity"
+          >
+            Contact
+          </a>
+          <button
             onClick={() => navigate("/")}
             className="text-2xl font-bold border-2 border-black px-6 py-2 rounded-xl bg-white/20 hover:bg-black hover:text-[#FDF0B4] transition-all"
           >
@@ -84,9 +108,22 @@ function Register(): JSX.Element {
       {/* Register Card */}
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="bg-[#FFF49C] w-full max-w-[550px] py-12 px-12 rounded-[40px] border border-black/10 shadow-lg flex flex-col items-center">
-          <h2 className="text-5xl font-medium text-black mb-12">Create Account</h2>
-          
+          <h2 className="text-5xl font-medium text-black mb-12">
+            Create Account
+          </h2>
+
           <form onSubmit={onSubmit} className="w-full flex flex-col gap-6">
+            {/* Username Field */}
+            <div className="flex flex-col gap-1">
+              <label className="text-lg text-black font-medium">Username</label>
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-transparent border-b-2 border-black outline-none pb-1 text-lg focus:border-blue-500 transition-colors"
+              />
+            </div>
             {/* Email Field */}
             <div className="flex flex-col gap-1">
               <label className="text-lg text-black font-medium">Email</label>
@@ -113,7 +150,9 @@ function Register(): JSX.Element {
 
             {/* Confirm Password Field */}
             <div className="flex flex-col gap-1">
-              <label className="text-lg text-black font-medium">Confirm Password</label>
+              <label className="text-lg text-black font-medium">
+                Confirm Password
+              </label>
               <input
                 required
                 type="password"

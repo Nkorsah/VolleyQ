@@ -1,16 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  createTeam, getTeams, joinTeam,
-  deleteTeam, isOwner, isMember, getMemberCount
-} from '../pages/teamcreation';
-import * as api from '../pages/api';
-import type { Team } from '../pages/api';
+  createTeam,
+  getTeams,
+  joinTeam,
+  deleteTeam,
+  isOwner,
+  isMember,
+  getMemberCount,
+} from "../api/teamcreation";
+import * as api from "../api/api";
+import type { Team } from "../api/api";
 
-
-vi.mock('../pages/api', () => ({
+vi.mock("../api/api", () => ({
   createTeam: vi.fn(),
   fetchTeams: vi.fn(),
-  joinTeam:   vi.fn(),
+  joinTeam: vi.fn(),
   deleteTeam: vi.fn(),
 }));
 
@@ -20,6 +24,10 @@ const mockTeam: Team = {
   ownerId: 'user-1',
   memberIds: ['user-1', 'user-2'],
   createdAt: '2024-01-01T00:00:00.000Z',
+  stats: {
+    wins: 10,
+    losses: 5
+  }
 };
 
 const mockTeam2: Team = {
@@ -28,50 +36,55 @@ const mockTeam2: Team = {
   ownerId: 'user-3',
   memberIds: ['user-3'],
   createdAt: '2024-01-02T00:00:00.000Z',
+  stats: {
+    wins: 0,
+    losses: 0
+  }
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('createTeam', () => {
-  it('calls api.createTeam with the correct name', async () => {
+describe("createTeam", () => {
+  it("calls api.createTeam with the correct name", async () => {
     vi.mocked(api.createTeam).mockResolvedValue(mockTeam);
 
-    await createTeam('Engineering');
+    await createTeam("Engineering");
 
-    expect(api.createTeam).toHaveBeenCalledWith({ name: 'Engineering' });
+    expect(api.createTeam).toHaveBeenCalledWith({ name: "Engineering" });
     expect(api.createTeam).toHaveBeenCalledTimes(1);
   });
 
-  it('returns the created team', async () => {
+  it("returns the created team", async () => {
     vi.mocked(api.createTeam).mockResolvedValue(mockTeam);
 
-    const result = await createTeam('Engineering');
+    const result = await createTeam("Engineering");
 
     expect(result).toEqual(mockTeam);
   });
 
-  it('throws if name is empty', async () => {
-    await expect(createTeam('')).rejects.toThrow('Team name cannot be empty');
+  it("throws if name is empty", async () => {
+    await expect(createTeam("")).rejects.toThrow("Team name cannot be empty");
     expect(api.createTeam).not.toHaveBeenCalled();
   });
 
-  it('throws if name is only whitespace', async () => {
-    await expect(createTeam('   ')).rejects.toThrow('Team name cannot be empty');
+  it("throws if name is only whitespace", async () => {
+    await expect(createTeam("   ")).rejects.toThrow(
+      "Team name cannot be empty",
+    );
     expect(api.createTeam).not.toHaveBeenCalled();
   });
 
-  it('throws if api.createTeam fails', async () => {
-    vi.mocked(api.createTeam).mockRejectedValue(new Error('Network error'));
+  it("throws if api.createTeam fails", async () => {
+    vi.mocked(api.createTeam).mockRejectedValue(new Error("Network error"));
 
-    await expect(createTeam('Engineering')).rejects.toThrow('Network error');
+    await expect(createTeam("Engineering")).rejects.toThrow("Network error");
   });
 });
 
-
-describe('getTeams', () => {
-  it('returns a list of teams', async () => {
+describe("getTeams", () => {
+  it("returns a list of teams", async () => {
     vi.mocked(api.fetchTeams).mockResolvedValue([mockTeam, mockTeam2]);
 
     const result = await getTeams();
@@ -80,7 +93,7 @@ describe('getTeams', () => {
     expect(api.fetchTeams).toHaveBeenCalledTimes(1);
   });
 
-  it('returns an empty array if user has no teams', async () => {
+  it("returns an empty array if user has no teams", async () => {
     vi.mocked(api.fetchTeams).mockResolvedValue([]);
 
     const result = await getTeams();
@@ -88,108 +101,107 @@ describe('getTeams', () => {
     expect(result).toEqual([]);
   });
 
-  it('throws if api.fetchTeams fails', async () => {
-    vi.mocked(api.fetchTeams).mockRejectedValue(new Error('Network error'));
+  it("throws if api.fetchTeams fails", async () => {
+    vi.mocked(api.fetchTeams).mockRejectedValue(new Error("Network error"));
 
-    await expect(getTeams()).rejects.toThrow('Network error');
+    await expect(getTeams()).rejects.toThrow("Network error");
   });
 });
 
-
-describe('joinTeam', () => {
-  it('calls api.joinTeam with the correct teamId', async () => {
+describe("joinTeam", () => {
+  it("calls api.joinTeam with the correct teamId", async () => {
     vi.mocked(api.joinTeam).mockResolvedValue(mockTeam);
 
-    await joinTeam('team-1');
+    await joinTeam("team-1");
 
-    expect(api.joinTeam).toHaveBeenCalledWith('team-1');
+    expect(api.joinTeam).toHaveBeenCalledWith("team-1");
     expect(api.joinTeam).toHaveBeenCalledTimes(1);
   });
 
-  it('returns the updated team', async () => {
+  it("returns the updated team", async () => {
     vi.mocked(api.joinTeam).mockResolvedValue(mockTeam);
 
-    const result = await joinTeam('team-1');
+    const result = await joinTeam("team-1");
 
     expect(result).toEqual(mockTeam);
   });
 
-  it('throws if teamId is empty', async () => {
-    await expect(joinTeam('')).rejects.toThrow('teamId is required');
+  it("throws if teamId is empty", async () => {
+    await expect(joinTeam("")).rejects.toThrow("teamId is required");
     expect(api.joinTeam).not.toHaveBeenCalled();
   });
 
-  it('throws if api.joinTeam fails', async () => {
-    vi.mocked(api.joinTeam).mockRejectedValue(new Error('Team not found'));
+  it("throws if api.joinTeam fails", async () => {
+    vi.mocked(api.joinTeam).mockRejectedValue(new Error("Team not found"));
 
-    await expect(joinTeam('team-1')).rejects.toThrow('Team not found');
+    await expect(joinTeam("team-1")).rejects.toThrow("Team not found");
   });
 });
 
-
-describe('deleteTeam', () => {
-  it('calls api.deleteTeam with the correct teamId', async () => {
+describe("deleteTeam", () => {
+  it("calls api.deleteTeam with the correct teamId", async () => {
     vi.mocked(api.deleteTeam).mockResolvedValue(undefined);
 
-    await deleteTeam('team-1');
+    await deleteTeam("team-1");
 
-    expect(api.deleteTeam).toHaveBeenCalledWith('team-1');
+    expect(api.deleteTeam).toHaveBeenCalledWith("team-1");
     expect(api.deleteTeam).toHaveBeenCalledTimes(1);
   });
 
-  it('throws if teamId is empty', async () => {
-    await expect(deleteTeam('')).rejects.toThrow('teamId is required');
+  it("throws if teamId is empty", async () => {
+    await expect(deleteTeam("")).rejects.toThrow("teamId is required");
     expect(api.deleteTeam).not.toHaveBeenCalled();
   });
 
-  it('throws if api.deleteTeam fails', async () => {
-    vi.mocked(api.deleteTeam).mockRejectedValue(new Error('Only the owner can delete a team'));
+  it("throws if api.deleteTeam fails", async () => {
+    vi.mocked(api.deleteTeam).mockRejectedValue(
+      new Error("Only the owner can delete a team"),
+    );
 
-    await expect(deleteTeam('team-1')).rejects.toThrow('Only the owner can delete a team');
+    await expect(deleteTeam("team-1")).rejects.toThrow(
+      "Only the owner can delete a team",
+    );
   });
 });
 
-
-describe('isOwner', () => {
-  it('returns true if userId matches ownerId', () => {
-    expect(isOwner(mockTeam, 'user-1')).toBe(true);
+describe("isOwner", () => {
+  it("returns true if userId matches ownerId", () => {
+    expect(isOwner(mockTeam, "user-1")).toBe(true);
   });
 
-  it('returns false if userId does not match ownerId', () => {
-    expect(isOwner(mockTeam, 'user-2')).toBe(false);
+  it("returns false if userId does not match ownerId", () => {
+    expect(isOwner(mockTeam, "user-2")).toBe(false);
   });
 
-  it('returns false for an unrelated user', () => {
-    expect(isOwner(mockTeam, 'user-99')).toBe(false);
-  });
-});
-
-
-describe('isMember', () => {
-  it('returns true if userId is in memberIds', () => {
-    expect(isMember(mockTeam, 'user-2')).toBe(true);
-  });
-
-  it('returns true for the owner', () => {
-    expect(isMember(mockTeam, 'user-1')).toBe(true);
-  });
-
-  it('returns false if userId is not in memberIds', () => {
-    expect(isMember(mockTeam, 'user-99')).toBe(false);
+  it("returns false for an unrelated user", () => {
+    expect(isOwner(mockTeam, "user-99")).toBe(false);
   });
 });
 
+describe("isMember", () => {
+  it("returns true if userId is in memberIds", () => {
+    expect(isMember(mockTeam, "user-2")).toBe(true);
+  });
 
-describe('getMemberCount', () => {
-  it('returns the correct member count', () => {
+  it("returns true for the owner", () => {
+    expect(isMember(mockTeam, "user-1")).toBe(true);
+  });
+
+  it("returns false if userId is not in memberIds", () => {
+    expect(isMember(mockTeam, "user-99")).toBe(false);
+  });
+});
+
+describe("getMemberCount", () => {
+  it("returns the correct member count", () => {
     expect(getMemberCount(mockTeam)).toBe(2);
   });
 
-  it('returns 1 for a team with only the owner', () => {
+  it("returns 1 for a team with only the owner", () => {
     expect(getMemberCount(mockTeam2)).toBe(1);
   });
 
-  it('returns 0 for a team with no members', () => {
+  it("returns 0 for a team with no members", () => {
     const emptyTeam = { ...mockTeam, memberIds: [] };
     expect(getMemberCount(emptyTeam)).toBe(0);
   });

@@ -1,54 +1,43 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
-import GeminiComponent from '../gemini/geminicomp';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { analyzeTeam } from '../api/teamcreation';
 
-vi.mock('@google/generative-ai');
+const { mockAnalyzeTeam } = vi.hoisted(() => ({
+  mockAnalyzeTeam: vi.fn(),
+}));
 
-const mockGenerateContent = vi.fn()
+vi.mock('../api/api', () => ({
+  analyzeTeam: mockAnalyzeTeam
+}));
 
-//setup for the tests
 beforeEach(() => {
-  mockGenerateContent.mockResolvedValue({
-    response: { text: () => 'This is the mock' },
-  });
-
-  vi.mocked(GoogleGenerativeAI).mockImplementation(function() {
-    return {
-      getGenerativeModel: () => ({ generateContent: mockGenerateContent }),
-    };
-  } as unknown as typeof GoogleGenerativeAI);
+  vi.clearAllMocks();
 });
 
-//actual gemini component testing, all mocks so probably won't kill my google cloud account
-describe('GeminiComponent', () => {
-  //clearing stuff after each test
-  afterEach(() => {
-    vi.clearAllMocks();
+describe('analyzeTeam', () => {
+  it('returns the analysis string on success', async () => {
+    mockAnalyzeTeam.mockResolvedValue({ analysis: 'Great performance overall!' });
+
+    const result = await analyzeTeam('team-1');
+
+    expect(result).toBe('Great performance overall!');
+    expect(mockAnalyzeTeam).toHaveBeenCalledWith('team-1');
+    expect(mockAnalyzeTeam).toHaveBeenCalledTimes(1);
   });
-  //test for checking if gemini component can have a prompt inputted
-  it('displays the AI response', async () => {
-    render(<GeminiComponent/>);
-    await userEvent.type(screen.getByRole('textbox', { name: /prompt/i }), 'Hello');
-    await userEvent.click(screen.getByRole('button', { name: /ask/i }));
-    console.log('generateContent called:', mockGenerateContent.mock.calls);
 
-    await waitFor(() => {
-      expect(screen.getByText('This is the mock')).toBeInTheDocument();
-    });
+  it('throws if teamId is empty', async () => {
+    await expect(analyzeTeam('')).rejects.toThrow('teamId is required');
+    expect(mockAnalyzeTeam).not.toHaveBeenCalled();
   });
-  //test to see if the component can handle api errors (likely hitting rate limit)
-  it('handles API errors', async () => {
-    mockGenerateContent.mockRejectedValueOnce(new Error('API down'));
 
-    render(<GeminiComponent/>);
-    await userEvent.type(screen.getByRole('textbox', { name: /prompt/i }), 'Hello');
-    await userEvent.click(screen.getByRole('button', { name: /ask/i }));
-    console.log('generateContent called:', mockGenerateContent.mock.calls);
+  it('throws if api.analyzeTeam fails', async () => {
+    mockAnalyzeTeam.mockRejectedValue(new Error('Network error'));
 
-    await waitFor(() => {
-      expect(screen.getByText(/error/i)).toBeInTheDocument();
-    });
+    await expect(analyzeTeam('team-1')).rejects.toThrow('Network error');
+  });
+
+  it('throws if analysis is empty', async () => {
+    mockAnalyzeTeam.mockResolvedValue({ analysis: '' });
+
+    await expect(analyzeTeam('team-1')).rejects.toThrow('No analysis returned');
   });
 });
