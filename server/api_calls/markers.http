@@ -1,0 +1,10 @@
+### Create Marker
+POST http://localhost:8080/api/create-marker
+Content-Type: application/json
+
+{
+  "lat": 40.12345,
+  "lng": -74.12345,
+  "label": "Court A",
+  "venueID": "0f3f8871-a24f-4281-9562-712d097c3eae"
+}

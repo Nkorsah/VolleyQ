@@ -46,7 +46,7 @@ function App(): JSX.Element {
       </h1>
 
       <button
-        onClick={() => navigate("/map-page")}
+        onClick={() => navigate("/map")}
         className="text-2xl px-12 py-5 rounded-2xl border-2 border-black bg-[#f2e28d] hover:scale-105 transition-transform relative z-10"
       >
         Find a Game

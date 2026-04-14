@@ -40,15 +40,17 @@ export type Marker = {
   id: string;
   lat: number;
   lng: number;
-  label: string;
+  label: string; // also venue name
   createdBy: string;
   createdAt: string;
+  venueID: string;
 };
 
 export type CreateMarkerRequest = {
   lat: number;
   lng: number;
   label: string;
+  venueID: string;
 };
 
 
@@ -258,3 +260,64 @@ export const deleteMarker = async (markerId: string): Promise<void> => {
     return handleAxiosError(err);
   }
 };
+
+export type Venue = {
+  venueID: string;
+  venue_name: string;
+  venue_description: string;
+  venue_creator: string;
+
+  address: any;
+  markerID: string | null;
+  marker: any;
+
+  number_of_teams: number;
+  number_of_courts: number;
+
+  createdAt: any;
+  updatedAt: any;
+};
+
+export type CreateVenueRequest = {
+  venue_name: string;
+  venue_description?: string;
+};
+
+export const createVenue = async (
+  venue: CreateVenueRequest
+): Promise<Venue> => {
+  try {
+    const res = await api.post(`/api/venue/create`, venue);
+
+    console.log('[createVenue] success:', res.data);
+
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const getVenues = async (): Promise<Venue[]> => {
+  try {
+    const res = await api.get("/api/venue");
+
+    console.log("[getVenues] success:", res.data);
+
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+// I can use a snapshot listener
+// export const getVenueByID = async (): Promise<Venue[]> => {
+//   try {
+//     const res = await api.get("/api/venue");
+
+//     console.log("[getVenues] success:", res.data);
+
+//     return res.data;
+//   } catch (err) {
+//     throw handleAxiosError(err);
+//   }
+// };

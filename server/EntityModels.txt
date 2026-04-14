@@ -1,0 +1,295 @@
+example user object: 
+
+{
+  "userID": "12345",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "avatarUrl": "https://example.com/avatar.png",
+
+  "current_teamID": "746d30c8-cee6-4a42-9deb-e736072a7959",
+  "team_name": "Spiking Aces",
+
+  "location_id": "philly",
+  "location_name": "Philadelphia",
+
+  "stats": {
+    "gamesPlayed": 0,
+    "wins": 0,
+    "losses": 0
+  },
+
+  "createdAt": {
+    "_seconds": 1775591381,
+    "_nanoseconds": 62000000
+  }
+}
+
+
+{
+  "teamID": "746d30c8-cee6-4a42-9deb-e736072a7959",
+  "team_name": "Spiking Aces",
+
+  "owner_id": "12345",
+
+  "members": [
+    {
+      "userID": "12345",
+      "name": "John Doe",
+      "avatarUrl": "https://example.com/avatar.png",
+      "role": "captain"
+    }
+  ],
+
+  "team_settings": {
+    "team_color": "#ff5733",
+    "number_of_players": 6,
+    "private": false
+  },
+
+  "team_stats": {
+    "wins": 0,
+    "losses": 0
+  },
+
+  "createdAt": {
+    "_seconds": 1775591381,
+    "_nanoseconds": 62000000
+  }
+}
+
+
+---------------------
+Data model for the backend make sure the data reflects this in the backend before sending to database.
+The we send back the right data to the frontend to have the correct state. 
+
+User Data model. 
+
+UserStats {
+  games_played: number,
+  wins: number,
+  losses: number
+}
+
+User {
+  userID: string,
+  name: string,
+  email: string,
+  avatarUrl: string,
+  venue_creator: boolean
+  teamID: string | null,
+  team_name: string | null,
+  team_leader: boolean
+  stats: UserStats,
+  createdAt: Timestamp
+}
+
+-------------------------
+Team Data model
+
+TeamStats {
+  wins: number,
+  losses: number
+}
+
+TeamSettings {
+  team_color: string,
+  number_of_players: number,
+  private: boolean
+}
+
+Team {
+  teamID: string,
+  team_name: string,
+
+  owner_id: string,
+  venueID: string,
+
+  members: TeamMember[],
+
+  team_settings: TeamSettings,
+  team_stats: TeamStats,
+
+  createdAt: Timestamp
+}
+
+TeamMember {
+  userID: string,
+  name: string,
+  avatarUrl: string,
+  role: "player" | "captain"
+}
+
+Timestamp {
+  _seconds: number,
+  _nanoseconds: number
+}
+
+Venue = { // will be used to sort teams too.
+  venueID: string,          // unique identifier for the venue
+  venue_name: string,       // display name, e.g. "Philadelphia Sports Center"
+  address         // optional: city, address, or geolocation
+  markerID: ID.
+  marker: marker // null upon creation
+  number_of_teams: number // could show this on the map view page
+  number_of_courts: number // could show this on the menu page
+  createdAt: Timestamp,     // when the venue was created
+  updatedAt: Timestamp,     // optional: last modified
+}
+
+
+address = { // null for now will be updated once a marker is set to this venue
+  street: string
+  city: string
+  state: string
+  zipcode: number
+}
+
+ marker = {
+      id: markerRef.id,
+      venueID,
+      lat,
+      lng,
+      label,
+      createdBy: uid,
+      createdAt: new Date().toISOString(),
+    };
+
+// I'll need a modify court button
+Court = { 
+  courtID: string, 
+  venueID: string, 
+  court_hostID: string, 
+  queueID: string, 
+  queue_length: number, 
+
+  court_settings = {
+    court_name: string 
+    max_teams_in_queue: number, 
+    queue_type: string, 
+    score_limit: number
+  }
+}
+
+// this is where the stats logic is going to happen. 
+// can only increment the score if your team is 3rd in the queue
+// match wil only pay attention to the top 3 enties of the queue and it'll check by queueID. 
+// QueueID will pass a teamID 
+  need the team stats for both teams. teamA will be the top of the queue and teamB will be the 2nd to the top of the stack. 
+Match = { 
+  courtID: string; 
+  matchID: string; 
+  queueID: string;
+  
+  teamA = {
+    teamID: string;
+    team_name: string;
+    team_score: string;
+    team_color: string;
+  }
+  teamB = { // these are the stats and info for the teams. 
+    teamID: string;
+    team_name: string;
+    team_score: string;
+    team_color: string;
+    // other stats that will update the team 
+  }
+
+  ongoing: boolean; // means that the match does not have enough people
+}
+
+Queue = {
+  courtID: string;
+  matchID: string; 
+  queue_type: string;
+  team_queue: string[] // will have teamID. Or I can have team objects in here.
+}
+
+Court view page. 
+Grab all the courts from the location and for each court, there will be a 
+match that shows the current teams. We'll aslo need the list for each queue
+
+logic
+if match does not have two teams, !ongoing, then the status will be waiting for teams. 
+
+Match page: 
+Need the two teams that are currently playing.
+A person that will keep score if they have the scorkeeper role. or the whole team will have access for now. 
+
+Queue page: 
+Depending on the queue, it'll be a stack data structure if it's it's FIFO
+
+
+If I want the court info, match info and queue info all on one page, I'll 
+for the courts page, we need the courts, match 
+
+
+
+
+    
+export const updateUser = async (userID, updateData) => {
+  if (!userID) throw new Error("No userID provided");
+
+  console.log("========== STRICT UPDATE USER ==========");
+  console.log("userID:", userID);
+  console.log("updateData:", updateData);
+
+  const userRef = db.collection("users").doc(userID);
+  const docSnap = await userRef.get();
+
+  if (!docSnap.exists) {
+    throw new Error("User document not found");
+  }
+
+  const existingData = docSnap.data();
+  console.log("existing user fields:", Object.keys(existingData));
+
+  const update = {};
+  const rejectedFields = [];
+
+  // STEP 1: validate against existing schema
+  for (const key of Object.keys(updateData)) {
+    if (!(key in existingData)) {
+      rejectedFields.push(key);
+      continue; // ❌ skip non-existing fields
+    }
+
+    const newValue = updateData[key];
+    const oldValue = existingData[key];
+
+    const isObject =
+      typeof newValue === "object" &&
+      newValue !== null &&
+      !Array.isArray(newValue) &&
+      typeof oldValue === "object" &&
+      oldValue !== null;
+
+    if (isObject) {
+      update[key] = { ...oldValue, ...newValue };
+    } else {
+      update[key] = newValue;
+    }
+  }
+
+  console.log("valid update payload:", update);
+  console.log("rejected fields:", rejectedFields);
+
+  // STEP 2: if nothing valid → stop
+  if (Object.keys(update).length === 0) {
+    throw new Error("No valid existing fields to update");
+  }
+
+  // STEP 3: update Firestore
+  await userRef.update(update);
+
+  const updatedSnap = await userRef.get();
+
+  console.log("update complete");
+  console.log("========== END STRICT UPDATE ==========");
+
+  return {
+    data: updatedSnap.data(),
+    rejectedFields,
+  };
+};
+
+

@@ -3,7 +3,7 @@ import { db, admin } from '../firebase.js';
 import { userAuthInfo } from './userRoutes.js';
 import gemini from '../gemini.js';
 import { v4 as uuidv4 } from "uuid";
-import { updateUser } from './userRoutes.js';
+import { updateUser } from './helper functions/updateEntities.js';
 
 const router = express.Router();
 
@@ -74,10 +74,10 @@ export const getUserID = async (authHeader) => {
 
 
 // can only join one team at a time.
-router.post('/create-team', async (req, res) => {
+router.post('/create-team', async (req, res) => { // A player makes this request
   console.log('/api/create-team called...');
   try {
-    const { team_name, team_settings } = req.body; // settings
+    const { team_name, team_settings, venueID } = req.body; // settings
 
     if (!team_name || typeof team_name !== 'string') {
       return res.status(400).json({ message: 'name is required' });
@@ -93,6 +93,10 @@ router.post('/create-team', async (req, res) => {
     //   number_of_players: 8,
     //   private: true
     // } 
+
+    // Also need to check if it's a valid venueID.
+    //error handle invalid fields.
+    // can't create team if you're already on a team.
     
     // grab user from DB
     const userDoc = await db.collection("users").doc(userID).get();
@@ -116,7 +120,7 @@ router.post('/create-team', async (req, res) => {
     
     const team = {
       teamID: uuidv4(), // unique id for the team
-      venueID: "philly", // change this later
+      venueID: venueID, // change this later
       team_name: team_name,
       owner_id: userID,
       members: team_members,
@@ -127,9 +131,8 @@ router.post('/create-team', async (req, res) => {
 
     await db.collection('teams').doc(team.teamID).set(team); // creating the team document. 
     // creating the team document from the user. 
-    const allowedFields =  ["teamID", "team_name", "team_leader"]; // updating user team name and team id
     const updateData = { teamID: team.teamID, team_name: team.team_name , team_leader: true} // changing the fields on the user side of things
-    const updatedUser = await updateUser(userID, updateData, allowedFields);
+    const updatedUser = await updateUser(userID, updateData);
     
         if (!updatedUser) {
           return res.status(400).json({ message: "No valid fields to update" });
@@ -160,7 +163,7 @@ router.get('/teams', async (req, res) => {
     //   .where('memberIds', 'array-contains', userID)
     //   .get();
 
-    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); // What does this do? 
+    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
     res.status(200).json(teams);
   } catch (err) {
     console.error(err);
@@ -168,17 +171,47 @@ router.get('/teams', async (req, res) => {
   }
 });
 
+router.get('/team/:teamID', async (req, res) => {
+  console.log('/api/team/:id called...');
 
-router.get('/team/:id', async (req, res) => { // getting team by ID
-  console.log('/api/teams called...');
   try {
-    const userID = getUserID(req.headers.authorization);
+    const { teamID } = req.params;
 
-    const snap = await db.collection('teams')
-      .where('memberIds', 'array-contains', userID)
+    const doc = await db.collection('teams').doc(teamID).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    const team = { teamID: doc.teamID, ...doc.data() };
+
+    res.status(200).json(team);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+router.get('/teams/venue/:venueID', async (req, res) => {
+  console.log('/api/teams/venue/:venueID called...');
+
+  try {
+    const { venueID } = req.params;
+
+    const snap = await db
+      .collection('teams')
+      .where('venueID', '==', venueID)
       .get();
 
-    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (snap.empty) {
+      return res.status(404).json({ message: 'No teams found for this venue' });
+    }
+
+    const teams = snap.docs.map(doc => ({
+      teamID: doc.id, // ✅ correct way
+      ...doc.data(),
+    }));
+
     res.status(200).json(teams);
   } catch (err) {
     console.error(err);
@@ -267,13 +300,12 @@ if (isAlreadyMember) {
     // await updateTeam(teamID, { members: [...existingMembers, newMember] }, ["members"]); // my function
 
     // 8️⃣ Update user with team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = {
       teamID: teamData.teamID,
       team_name: teamData.team_name,
       team_leader: false
     };
-    await updateUser(userID, updateData, allowedFields);
+    await updateUser(userID, updateData);
 
     // 9️⃣ Return updated team info
     const updatedTeamDoc = await teamRef.get();
@@ -338,14 +370,13 @@ router.delete('/leave-team/:teamID', async (req, res) => { // work on transferin
 });
 
     // 7️⃣ Clear user's team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = {
       teamID: null,
       team_name: null,
       team_leader: false
     };
 
-    await updateUser(userID, updateData, allowedFields);
+    await updateUser(userID, updateData);
 
     // 8️⃣ Return updated team
     const updatedTeamDoc = await teamRef.get();
@@ -421,9 +452,8 @@ router.delete('/team/kick/:userID', async (req, res) => {
     await teamRef.update({ members: updatedMembers });
 
     // 8️⃣ Clear kicked user's team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = { teamID: null, team_name: null, team_leader: false };
-    await updateUser(targetUserID, updateData, allowedFields);
+    await updateUser(targetUserID, updateData);
 
     // 9️⃣ Return updated team
     const updatedTeamDoc = await teamRef.get();
@@ -474,10 +504,9 @@ router.delete('/team/delete', async (req, res) => {
     }
 
     // 5️⃣ Clear all members' team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = { teamID: null, team_name: null, team_leader: false };
 
-    const updatePromises = members.map(m => updateUser(m.userID, updateData, allowedFields));
+    const updatePromises = members.map(m => updateUser(m.userID, updateData));
     await Promise.all(updatePromises);
 
     // 6️⃣ Delete the team document
@@ -551,9 +580,8 @@ router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
     await teamRef.update({ members: updatedMembers });
 
     // 9️⃣ Update user documents
-    const allowedFields = ["team_leader"];
-    await updateUser(newLeaderID, { team_leader: true }, allowedFields);
-    await updateUser(team_leaderID, { team_leader: false }, allowedFields);
+    await updateUser(newLeaderID, { team_leader: true });
+    await updateUser(team_leaderID, { team_leader: false });
 
     res.status(200).json({
       message: `Team leadership transferred to user ${newLeaderID}`,

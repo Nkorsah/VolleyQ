@@ -1,12 +1,13 @@
 import express from 'express';
 import { db } from '../firebase.js';
+import { updateVenue } from './helper functions/updateEntities.js';
 
 const router = express.Router();
 //we need auth here baaaaad
 router.post('/create-marker', async (req, res) => {
   console.log('/api/create-marker called...');
   try {
-    const { lat, lng, label } = req.body;
+    const { lat, lng, label , venueID} = req.body;
 
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ message: 'lat and lng are required numbers' });
@@ -20,14 +21,22 @@ router.post('/create-marker', async (req, res) => {
     const markerRef = db.collection('markers').doc();
     const marker = {
       id: markerRef.id,
+      venueID,
       lat,
       lng,
-      label,
+      label, // venue name
       createdBy: uid,
       createdAt: new Date().toISOString(),
     };
 
+    const updateData = {
+      marker,
+      markerID: marker.id
+    }
+    await updateVenue(venueID, updateData)
     await markerRef.set(marker);
+
+    // also update the venue by ID so add a venue attribute to the marker
     res.status(201).json(marker);
   } catch (err) {
     console.error(err);

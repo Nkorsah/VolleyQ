@@ -63,6 +63,8 @@ import matchRoutes from './routes/matchRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import markerRoutes from './routes/markerRoutes.js';
+import venueRoutes from './routes/venueRoutes.js';
+import courtRoutes from './routes/courtRoutes.js'
 
 
 app.use(bodyParser.json())
@@ -95,12 +97,15 @@ app.post('/create', async (req, res) => {
 })
 
 // The different routes for users. 
-app.use('/api', teamRoutes);
+// 'api/venue/team' to replace 'api/team' 
+app.use('/api/team', teamRoutes);
 app.use('/api', userRoutes);
 app.use('/api', matchRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', aiRoutes);
 app.use('/api', markerRoutes); 
+app.use('/api/venue', venueRoutes); 
+app.use('/api/venue/court', courtRoutes)
 
 // When we deploy this server, we'll use process.env ...
 const PORT = process.env.PORT || 8080;
