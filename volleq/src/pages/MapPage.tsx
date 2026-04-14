@@ -104,12 +104,8 @@ function MapPage(): JSX.Element {
           /* FRAME 60: Enlarged Preview View */
           <div className="flex flex-1">
             <div className="w-1/2 relative border-r border-gray-200">
+              {/* LARGE HEART OVERLAY REMOVED FROM HERE */}
               <MapComponent userId={currentUser?.uid || '1234567'} />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="bg-white p-4 rounded-full shadow-2xl scale-125 border-4 border-[#f7e49a]">
-                  <span className="text-6xl">❤️</span>
-                </div>
-              </div>
             </div>
 
             <div className="w-1/2 flex flex-col items-center justify-center p-12 text-center bg-white relative">
@@ -120,6 +116,7 @@ function MapPage(): JSX.Element {
                 ✕
               </button>
               
+              {/* Keep the heart icon here on the details panel */}
               <div className="mb-8 scale-150">
                 <span className="text-8xl">❤️</span>
               </div>
