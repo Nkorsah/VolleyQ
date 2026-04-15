@@ -1,198 +1,140 @@
 import express from 'express';
-import { db, admin } from '../firebase.js';
+import { db } from '../firebase.js';
+import admin from 'firebase-admin';
 
 const router = express.Router();
 
-//if you see a const uid = '1234567' we gotta replace that with actual auth
-/*router.post('/create-match', async (req, res) => {
-  console.log('/api/create-match called...');
+router.post('/submit-match', async (req, res) => {
+  console.log('/api/submit-match called...');
   try {
-    const { name } = req.body;
+    const { courtId, courtName, teamA, teamB, sets } = req.body;
 
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ message: 'name is required' });
+    if (!courtId || !teamA?.id || !teamB?.id || !sets?.length) {
+      return res.status(400).json({ message: 'courtId, teamA, teamB and sets are required' });
+    }
+    if (teamA.id === teamB.id) {
+      return res.status(400).json({ message: 'Teams must be different' });
     }
 
     const uid = '1234567';
-    const teamid = '1234567'
+
+    const [teamASnap, teamBSnap] = await Promise.all([
+      db.collection('teams').doc(teamA.id).get(),
+      db.collection('teams').doc(teamB.id).get(),
+    ]);
+
+    if (!teamASnap.exists || !teamBSnap.exists) {
+      return res.status(404).json({ message: 'One or both teams not found' });
+    }
+
+    const teamAData = teamASnap.data();
+    const teamBData = teamBSnap.data();
+    const isMember = teamAData.memberIds.includes(uid) || teamBData.memberIds.includes(uid);
+
+    if (!isMember) {
+      return res.status(403).json({ message: 'Only team members can submit scores' });
+    }
+
+    let teamAWins = 0;
+    let teamBWins = 0;
+    sets.forEach(set => {
+      if (set.teamAPoints > set.teamBPoints) teamAWins++;
+      else teamBWins++;
+    });
+
+    const winnerId = teamAWins > teamBWins ? teamA.id : teamB.id;
+    const loserId = teamAWins > teamBWins ? teamB.id : teamA.id;
 
     const matchRef = db.collection('matches').doc();
     const match = {
       id: matchRef.id,
-      name,
-      ownerId: uid,
-      teamIds: [teamid],
-      createdAt: new Date().toISOString()
+      courtId,
+      courtName,
+      teamA,
+      teamB,
+      sets,
+      winnerId,
+      loserId,
+      playedAt: new Date().toISOString(),
+      submittedBy: uid,
     };
 
-    await teamRef.set(team);
-    await db.collection('users').doc(uid).set({ teamIds: [teamRef.id] }, { merge: true });
-
-    console.log('Team successfully created!', team);
-    res.status(201).json(team);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-});
-
-
-router.get('/teams', async (req, res) => {
-  console.log('/api/teams called...');
-  try {
-    const uid = '1234567';
-
-    const snap = await db.collection('teams')
-      .where('memberIds', 'array-contains', uid)
-      .get();
-
-    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json(teams);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-});
-
-
-router.put('/join-team/:teamId', async (req, res) => {
-  const { teamId } = req.params;
-  console.log(`/api/join-team/${teamId} called...`);
-  try {
-    const uid = '1234567';
-
-    const teamRef = db.collection('teams').doc(teamId);
-    const teamSnap = await teamRef.get();
-
-    if (!teamSnap.exists) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-
-    await teamRef.update({
-      memberIds: admin.firestore.FieldValue.arrayUnion(uid),
-    });
-    await db.collection('users').doc(uid).set({
-      teamIds: admin.firestore.FieldValue.arrayUnion(teamId),
-    }, { merge: true });
-
-    const updated = await teamRef.get();
-    res.status(200).json({ id: updated.id, ...updated.data() });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-});
-
-
-router.delete('/delete-team/:teamId', async (req, res) => {
-  const { teamId } = req.params;
-  console.log(`/api/delete-team/${teamId} called...`);
-  try {
-    const uid = '1234567';
-
-    const teamRef = db.collection('teams').doc(teamId);
-    const teamSnap = await teamRef.get();
-
-    if (!teamSnap.exists) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-
-    const team = teamSnap.data();
-
-    if (team.ownerId !== uid) {
-      return res.status(403).json({ message: 'Only the owner can delete a team' });
-    }
-
-    // Remove teamId from all members
     const batch = db.batch();
-    team.memberIds.forEach(memberId => {
-      const userRef = db.collection('users').doc(memberId);
-      batch.update(userRef, {
-        teamIds: admin.firestore.FieldValue.arrayRemove(teamId),
-      });
+
+    batch.set(matchRef, match);
+
+    const teamAMatchRef = db
+      .collection('teams').doc(teamA.id)
+      .collection('matches').doc(matchRef.id);
+
+    batch.set(teamAMatchRef, {
+      matchId: matchRef.id,
+      opponent: teamB,
+      result: winnerId === teamA.id ? 'win' : 'loss',
+      sets,
+      courtId,
+      playedAt: match.playedAt,
     });
-    batch.delete(teamRef);
+
+    const teamBMatchRef = db
+      .collection('teams').doc(teamB.id)
+      .collection('matches').doc(matchRef.id);
+
+    batch.set(teamBMatchRef, {
+      matchId: matchRef.id,
+      opponent: teamA,
+      result: winnerId === teamB.id ? 'win' : 'loss',
+      sets,
+      courtId,
+      playedAt: match.playedAt,
+    });
+
+    batch.update(db.collection('teams').doc(winnerId), {
+      'stats.wins': admin.firestore.FieldValue.increment(1),
+    });
+    batch.update(db.collection('teams').doc(loserId), {
+      'stats.losses': admin.firestore.FieldValue.increment(1),
+    });
+
     await batch.commit();
 
-    res.status(200).json({ message: `Team ${teamId} deleted` });
+    res.status(201).json(match);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// server/routes/teamroutes.js
-
-// ── PATCH /api/update-stats/:teamId ───────────────────────
-
-router.patch('/update-stats/:teamId', async (req, res) => {
+router.get('/teams/:teamId/matches', async (req, res) => {
   const { teamId } = req.params;
-  const { result } = req.body; // expects "win" or "loss"
-  console.log(`/api/update-stats/${teamId} called...`);
-
-  if (result !== 'win' && result !== 'loss') {
-    return res.status(400).json({ message: 'result must be "win" or "loss"' });
-  }
-
   try {
-    // TODO: replace with real auth
-    const uid = '1234567';
+    const snap = await db
+      .collection('teams').doc(teamId)
+      .collection('matches')
+      .orderBy('playedAt', 'desc')
+      .get();
 
-    const teamRef = db.collection('teams').doc(teamId);
-    const teamSnap = await teamRef.get();
-
-    if (!teamSnap.exists) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-
-    const team = teamSnap.data();
-
-    if (team.ownerId !== uid) {
-      return res.status(403).json({ message: 'Only the owner can update stats' });
-    }
-
-    // Increment the correct field
-    await teamRef.update({
-      [`stats.${result}s`]: admin.firestore.FieldValue.increment(1),
-    });
-
-    const updated = await teamRef.get();
-    res.status(200).json({ id: updated.id, ...updated.data() });
+    const matches = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(matches);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// ── PATCH /api/reset-stats/:teamId ────────────────────────
 
-router.patch('/reset-stats/:teamId', async (req, res) => {
-  const { teamId } = req.params;
-  console.log(`/api/reset-stats/${teamId} called...`);
-
+router.get('/matches/:matchId', async (req, res) => {
+  const { matchId } = req.params;
   try {
-    // TODO: replace with real auth
-    const uid = '1234567';
-
-    const teamRef = db.collection('teams').doc(teamId);
-    const teamSnap = await teamRef.get();
-
-    if (!teamSnap.exists) {
-      return res.status(404).json({ message: 'Team not found' });
+    const snap = await db.collection('matches').doc(matchId).get();
+    if (!snap.exists) {
+      return res.status(404).json({ message: 'Match not found' });
     }
-
-    if (teamSnap.data().ownerId !== uid) {
-      return res.status(403).json({ message: 'Only the owner can reset stats' });
-    }
-
-    await teamRef.update({ stats: { wins: 0, losses: 0 } });
-
-    const updated = await teamRef.get();
-    res.status(200).json({ id: updated.id, ...updated.data() });
+    res.status(200).json({ id: snap.id, ...snap.data() });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
-}); */
+});
 
 export default router;
