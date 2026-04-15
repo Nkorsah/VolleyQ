@@ -7,7 +7,6 @@ interface TeamState {
 
   setTeam: (team: Team) => void;
   resetTeam: () => void;
-
   subscribeToTeam: (teamID: string) => () => void;
 }
 
