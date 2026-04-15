@@ -64,8 +64,15 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
   const loadData = async () => {
     try {
       const venues = await getVenues();
-      setMarkers(venues.map(v => v.marker));
-    } catch (err) { console.error(err); }
+      // FIX 1: Filter out venues that don't have a valid marker object or coordinates
+      const validMarkers = venues
+        .filter(v => v.marker && typeof v.marker.lat === 'number' && typeof v.marker.lng === 'number')
+        .map(v => v.marker);
+        
+      setMarkers(validMarkers);
+    } catch (err) { 
+      console.error("Map Load Error:", err); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -90,8 +97,8 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
       });
 
       setSelected(null);
-      await loadData(); // Local refresh of pins
-      if (onVenueActivated) onVenueActivated(); // Parent refresh of sidebar
+      await loadData(); 
+      if (onVenueActivated) onVenueActivated(); 
     } catch (err) {
       console.error("Activation failed", err);
     }
@@ -108,16 +115,24 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
         >
           <PlacesManager onPlacesFound={handlePlacesFound} />
 
-          {/* ACTIVE (RED) */}
-          {markers.map(marker => (
-            <AdvancedMarker key={marker.id} position={{ lat: marker.lat, lng: marker.lng }} onClick={() => setSelected({ ...marker, isCustom: true })}>
+          {/* ACTIVE (RED) - FIX 2: Added safety check for marker existence */}
+          {markers?.map(marker => marker && (
+            <AdvancedMarker 
+              key={marker.id || marker.venueID} 
+              position={{ lat: marker.lat, lng: marker.lng }} 
+              onClick={() => setSelected({ ...marker, isCustom: true })}
+            >
               <Pin background={'#ef4444'} borderColor={'#b91c1c'} glyphColor={'white'} />
             </AdvancedMarker>
           ))}
 
-          {/* SUGGESTED (YELLOW) */}
-          {googleMarkers.map(place => (
-            <AdvancedMarker key={place.place_id} position={place.geometry.location} onClick={() => setSelected({ ...place, isCustom: false })}>
+          {/* SUGGESTED (YELLOW) - FIX 3: Added check for geometry existence */}
+          {googleMarkers?.map(place => place?.geometry?.location && (
+            <AdvancedMarker 
+              key={place.place_id} 
+              position={place.geometry.location} 
+              onClick={() => setSelected({ ...place, isCustom: false })}
+            >
               <Pin background={'#f7e49a'} borderColor={'#ca8a04'} glyphColor={'#854d0e'} />
             </AdvancedMarker>
           ))}
