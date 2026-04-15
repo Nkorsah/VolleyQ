@@ -34,15 +34,31 @@ export type User = {
 
   createdAt: Date | null;
 }
+export type TeamMember = {
+  userID: string;
+  name: string;
+  avatarUrl: string;
+  team_leader: boolean;
+};
 
 export type Team = {
-  id: string;
-  name: string;
-  ownerId: string;
-  memberIds: string[];
-  createdAt: string;
-  stats: {
+  teamID: string;
+  team_name: string;
+  owner_id: string;
+
+  members: TeamMember[];
+
+  team_settings: {
+    team_color: string;
+    number_of_players: number;
+    private: boolean;
+  };
+
+  team_stats: {
     wins: number;
     losses: number;
-  }
+  };
+
+  createdAt: any;
+  venueID: string;
 };

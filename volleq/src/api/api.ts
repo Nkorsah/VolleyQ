@@ -3,6 +3,7 @@
 import axios from "axios";
 import { auth } from "../firebase/firebase-service";
 import { User } from "../types/types";
+import { Team } from "../types/types";
 const BASE_URL = import.meta.env.VITE_SERVER_HOST;
 
 
@@ -13,23 +14,17 @@ export type CreateUserRequest = {
 };
 
 export type CreateTeamRequest = {
-  name: string;
+  team_name: string;
+  team_settings: {
+    team_color: string;
+    number_of_players: number;
+    private: boolean;
+  };
+  venueID: string;
 };
 
 export type JoinTeamRequest = {
   teamId: string;
-};
-
-export type Team = {
-  id: string;
-  name: string;
-  ownerId: string;
-  memberIds: string[];
-  createdAt: string;
-  stats: {
-    wins: number;
-    losses: number;
-  }
 };
 
 export type AnalyzeTeamResponse = {
@@ -143,14 +138,13 @@ export const deleteUserDataDB = async (): Promise<void> => {
   }
 };
 
-
 export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {
   try {
-    const res = await api.post(`/api/create-team`, newTeam);
+    const res = await api.post(`/api/team/create-team`, newTeam);
     console.log('[createTeam] success:', res.data);
     return res.data;
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err); // 🔥 change this (don’t return)
   }
 };
 
