@@ -1,193 +1,158 @@
-import { useState, useEffect } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
-import { addMarker, getMarkers, removeMarker, canDelete, createVenue } from '../api/markers';
-import type { Marker} from '../api/api';
+import { useState, useEffect, useCallback } from 'react';
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
+import { addMarker, removeMarker, createVenue } from '../api/markers';
+import type { Marker } from '../api/api';
 import { getVenues } from '../api/api';
 import { CreateVenueModal } from '../components/CreateVenueModal';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_ID;
 
-type Props = {
-  userId: string;
-};
+const PlacesManager = ({ onPlacesFound }: { onPlacesFound: (places: any[]) => void }) => {
+  const map = useMap();
 
-export function MapComponent({ userId }: Props) {
-  const [markers, setMarkers] = useState<Marker[]>([]);
-  const [selected, setSelected] = useState<Marker | null>(null);
-  const [label, setLabel] = useState('');
-  const [venue_description, setVenue_description] = useState('');
-  const [pendingPos, setPendingPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!map) return;
 
-  // useEffect(() => {
-  //   getMarkers()
-  //     .then(setMarkers)
-  //     .catch(() => setError('Failed to load markers'));
-  // }, []);
+    const service = new google.maps.places.PlacesService(map);
+    const searchTypes = ['volleyball court', 'recreation center'];
+    
+    const performSearch = async () => {
+      let allResults: any[] = [];
+      const placeIds = new Set();
 
- useEffect(() => {
-    const loadData = async () => {
-      try {
-        const venues = await getVenues();
+      searchTypes.forEach((query) => {
+        const request: google.maps.places.TextSearchRequest = {
+          location: map.getCenter(),
+          radius: 5000,
+          query: query
+        };
 
-      const allMarkers = venues.map((venue) => venue.marker);
-      setMarkers(allMarkers);
-
-        // const markers = await getMarkers();
-      } catch (err) {
-        setError("Failed to load data");
-      }
+        service.textSearch(request, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            results.forEach(place => {
+              if (!placeIds.has(place.place_id)) {
+                placeIds.add(place.place_id);
+                allResults.push({ ...place, suggestionType: query });
+              }
+            });
+            onPlacesFound([...allResults]);
+          }
+        });
+      });
     };
 
-    loadData();
-  }, []);
+    performSearch();
+  }, [map, onPlacesFound]);
+
+  return null;
+};
+
+export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }: { 
+  userId: string, 
+  onGooglePlacesLoaded?: (places: any[]) => void,
+  onVenueActivated?: () => void 
+}) {
+  const [markers, setMarkers] = useState<Marker[]>([]);
+  const [googleMarkers, setGoogleMarkers] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any | null>(null);
+  const [pendingPos, setPendingPos] = useState<{ lat: number; lng: number } | null>(null);
   
-  
-  const handleMapClick = (e: any) => {
-    const lat = e.detail.latLng.lat;
-    const lng = e.detail.latLng.lng;
-    setPendingPos({ lat, lng });
-    setLabel('');
-    setSelected(null);
+  const [label, setLabel] = useState('');
+  const [venue_description, setVenue_description] = useState('');
+
+  const loadData = async () => {
+    try {
+      const venues = await getVenues();
+      setMarkers(venues.map(v => v.marker));
+    } catch (err) { console.error(err); }
   };
 
-  const handleSaveMarker = async () => {
-    if (!pendingPos) return;
+  useEffect(() => { loadData(); }, []);
+
+  const handlePlacesFound = useCallback((places: any[]) => {
+    setGoogleMarkers(places);
+    if (onGooglePlacesLoaded) onGooglePlacesLoaded(places);
+  }, [onGooglePlacesLoaded]);
+
+  const handleActivateLocation = async (place: any) => {
     try {
-      // create venue then add marker
-      const newVenue = await createVenue({
-        venue_name: label,
-        venue_description
-      })
+      const newVenue = await createVenue({ 
+        venue_name: place.name, 
+        venue_description: place.formatted_address || place.vicinity 
+      });
 
-      console.log('venue created!')
-
-      const newMarker = await addMarker({ // add marker will
-        lat: pendingPos.lat,
-        lng: pendingPos.lng,
-        label: label || 'New Marker',
+      await addMarker({
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+        label: place.name,
         venueID: newVenue.venueID
       });
 
-      setMarkers(prev => [...prev, newMarker]);
-
-      setPendingPos(null);
-      setLabel("");
-      setVenue_description("");
-    } catch (err) {
-        setError('Failed to save marker'); 
-        setPendingPos(null);  
-  }
-};
-
-  const handleDelete = async (markerId: string) => {
-    try {
-      await removeMarker(markerId);
-      setMarkers(prev => prev.filter(m => m.id !== markerId));
       setSelected(null);
+      await loadData(); // Local refresh of pins
+      if (onVenueActivated) onVenueActivated(); // Parent refresh of sidebar
     } catch (err) {
-      setError('Failed to delete marker');
+      console.error("Activation failed", err);
     }
   };
 
   return (
-    <div style={{ height: '600px', width: '100%' }}>
-      {error && <p>{error}</p>}
-
-      <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-        <Map
-          mapId={MAP_ID}
-          defaultCenter={{ lat: 39.9812, lng: -75.1554 }}
-          defaultZoom={15}
-          onClick={handleMapClick}
+    <div style={{ height: '100%', width: '100%' }}>
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
+        <Map 
+          mapId={MAP_ID} 
+          defaultCenter={{ lat: 39.9812, lng: -75.1554 }} 
+          defaultZoom={14} 
+          onClick={(e: any) => setPendingPos({ lat: e.detail.latLng.lat, lng: e.detail.latLng.lng })}
         >
-          {/* Existing markers */}
+          <PlacesManager onPlacesFound={handlePlacesFound} />
+
+          {/* ACTIVE (RED) */}
           {markers.map(marker => (
-            <AdvancedMarker
-              key={marker.id}
-              position={{ lat: marker.lat, lng: marker.lng }}
-              onClick={() => setSelected(marker)}
-            >
-              <Pin />
+            <AdvancedMarker key={marker.id} position={{ lat: marker.lat, lng: marker.lng }} onClick={() => setSelected({ ...marker, isCustom: true })}>
+              <Pin background={'#ef4444'} borderColor={'#b91c1c'} glyphColor={'white'} />
             </AdvancedMarker>
           ))}
 
-          {/* Info window for selected marker */}
+          {/* SUGGESTED (YELLOW) */}
+          {googleMarkers.map(place => (
+            <AdvancedMarker key={place.place_id} position={place.geometry.location} onClick={() => setSelected({ ...place, isCustom: false })}>
+              <Pin background={'#f7e49a'} borderColor={'#ca8a04'} glyphColor={'#854d0e'} />
+            </AdvancedMarker>
+          ))}
+
           {selected && (
-            <InfoWindow
-              position={{ lat: selected.lat, lng: selected.lng }}
+            <InfoWindow 
+              position={selected.geometry?.location || { lat: selected.lat, lng: selected.lng }} 
               onCloseClick={() => setSelected(null)}
             >
-              <div>
-                <p><strong>{selected.label}</strong></p>
-                <p>Added by: {selected.createdBy}</p>
-                {canDelete(selected, userId) && (
-                  <button onClick={() => handleDelete(selected.id)}>
-                    Delete
+              <div className="p-2 min-w-[180px]">
+                <p className="font-bold text-gray-800">{selected.name || selected.label}</p>
+                <p className="text-[10px] text-gray-500 mb-2">{selected.vicinity || "Official Venue"}</p>
+                
+                {!selected.isCustom && (
+                  <button 
+                    onClick={() => handleActivateLocation(selected)}
+                    className="w-full py-2 bg-[#f7e49a] border border-gray-400 rounded text-[11px] font-bold hover:bg-[#f2db82] transition-colors"
+                  >
+                    + Activate Venue
                   </button>
                 )}
               </div>
             </InfoWindow>
           )}
-
-          {/* Pending marker placement and styling the create venue window*/}
-          {/* {pendingPos && (
-            <InfoWindow
-              position={pendingPos}
-              onCloseClick={() => setPendingPos(null)}
-            >
-              <div className="w-64 p-4 flex flex-col gap-3">
-    
-                <h2 className="text-lg font-semibold text-center text-gray-800">
-                  Create Venue
-                </h2>
-
-                <input
-                  type="text"
-                  placeholder="Venue name"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-
-                <input
-                  type="text"
-                  placeholder="Venue description"
-                  value={venue_description}
-                  onChange={(e) => setVenue_description(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-
-                <div className="flex justify-between mt-2">
-                  <button
-                    onClick={handleSaveMarker}
-                    className="px-4 py-2 bg-[#f7e49a] border border-gray-400 rounded-md text-sm font-medium hover:bg-[#f2db82]"
-                  >
-                    Save
-                  </button>
-
-                  <button
-                    onClick={() => setPendingPos(null)}
-                    className="px-4 py-2 text-sm text-gray-500 hover:underline"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </InfoWindow>
-          )} */}
         </Map>
-        <CreateVenueModal
-          open={!!pendingPos}
-          lat={pendingPos?.lat ?? null}
-          lng={pendingPos?.lng ?? null}
-          label={label}
-          venueDescription={venue_description}
-          setLabel={setLabel}
-          setVenueDescription={setVenue_description}
-          onClose={() => setPendingPos(null)}
-          onSave={handleSaveMarker}
+        <CreateVenueModal 
+          open={!!pendingPos} 
+          lat={pendingPos?.lat ?? null} 
+          lng={pendingPos?.lng ?? null} 
+          label={label} 
+          setLabel={setLabel} 
+          venueDescription={venue_description} 
+          setVenueDescription={setVenue_description} 
+          onClose={() => setPendingPos(null)} 
+          onSave={loadData} 
         />
       </APIProvider>
     </div>
