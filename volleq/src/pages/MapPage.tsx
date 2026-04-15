@@ -19,13 +19,22 @@ function MapPage(): JSX.Element {
   const loadData = async () => {
     try {
       const venues = await getVenues();
-      setMarkers(venues.map((v) => v.marker));
+      
+      // FIX: Filter out any venues that have null markers or missing coordinates
+      // This prevents the "Cannot read properties of null (reading 'lat')" error
+      const validMarkers = venues
+        .filter(v => v.marker && typeof v.marker.lat === 'number' && typeof v.marker.lng === 'number')
+        .map((v) => v.marker);
+
+      setMarkers(validMarkers);
     } catch (err) {
       console.error("Failed to load active venues", err);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData(); 
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-[#fdf2d1]">
@@ -54,18 +63,29 @@ function MapPage(): JSX.Element {
                 <div className="px-6 py-2 text-[10px] font-bold text-red-500 uppercase tracking-widest bg-red-50/50">
                   Active Playable Venues
                 </div>
-                {markers.map((marker) => (
-                  <div 
-                    key={marker.venueID} 
-                    onClick={() => { setPreviewLocation(marker.label); setVenueID(marker.venueID); }} 
-                    className="flex items-center p-4 border-b border-gray-100 hover:bg-red-50 cursor-pointer transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mr-4 bg-red-100 shadow-sm">
-                      ❤️
-                    </div>
-                    <span className="text-sm font-semibold text-gray-800">{marker.label}</span>
-                  </div>
-                ))}
+                
+                {/* FIX: Use optional chaining and ensure marker exists before rendering */}
+                {markers && markers.length > 0 ? (
+                  markers.map((marker) => (
+                    marker && (
+                      <div 
+                        key={marker.venueID} 
+                        onClick={() => { 
+                          setPreviewLocation(marker.label); 
+                          setVenueID(marker.venueID); 
+                        }} 
+                        className="flex items-center p-4 border-b border-gray-100 hover:bg-red-50 cursor-pointer transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center mr-4 bg-red-100 shadow-sm">
+                          ❤️
+                        </div>
+                        <span className="text-sm font-semibold text-gray-800">{marker.label}</span>
+                      </div>
+                    )
+                  ))
+                ) : (
+                  <div className="p-6 text-sm text-gray-400 italic">No active venues found nearby.</div>
+                )}
 
                 {/* SUGGESTED VENUES SECTION */}
                 {googleSuggestions.length > 0 && (
@@ -97,6 +117,8 @@ function MapPage(): JSX.Element {
                 userId={currentUser?.uid || '1234567'} 
                 onGooglePlacesLoaded={setGoogleSuggestions} 
                 onVenueActivated={loadData}
+                // Pass markers to MapComponent if it expects them as props
+                markers={markers} 
               />
             </div>
           </>
@@ -104,8 +126,10 @@ function MapPage(): JSX.Element {
           /* FRAME 60: Enlarged Preview View */
           <div className="flex flex-1">
             <div className="w-1/2 relative border-r border-gray-200">
-              {/* LARGE HEART OVERLAY REMOVED FROM HERE */}
-              <MapComponent userId={currentUser?.uid || '1234567'} />
+              <MapComponent 
+                userId={currentUser?.uid || '1234567'} 
+                markers={markers}
+              />
             </div>
 
             <div className="w-1/2 flex flex-col items-center justify-center p-12 text-center bg-white relative">
@@ -116,7 +140,6 @@ function MapPage(): JSX.Element {
                 ✕
               </button>
               
-              {/* Keep the heart icon here on the details panel */}
               <div className="mb-8 scale-150">
                 <span className="text-8xl">❤️</span>
               </div>
@@ -129,8 +152,10 @@ function MapPage(): JSX.Element {
               
               <button 
                 onClick={() => {
-                  setVenue(venueID, previewLocation);
-                  navigate(`/venue/${encodeURIComponent(previewLocation)}/${venueID}`);
+                  if (venueID && previewLocation) {
+                    setVenue(venueID, previewLocation);
+                    navigate(`/venue/${encodeURIComponent(previewLocation)}/${venueID}`);
+                  }
                 }}
                 className="px-16 py-4 bg-[#f7e49a] border border-gray-400 rounded-xl text-xl font-bold hover:bg-[#f2db82] transition-transform active:scale-95 shadow-md"
               >
