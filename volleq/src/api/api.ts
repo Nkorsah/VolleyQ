@@ -442,6 +442,21 @@ export const joinQueue = async (courtID: string, token: string): Promise<{
   }
 };
 
+/*export const leaveQueue = async (courtID: string, token: string): Promise<{
+  message: string;
+  team: string;
+  team_queue: string[];
+}> => {
+  
+  try {
+    const res = await axios.delete(`${BASE_URL}/api/courts/${courtID}/queue/${token}`);
+    console.log('[leaveQueue] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+}; */
+
 export const advanceQueue = async (courtID: string, token: string): Promise<{
   message: string;
   removed_teamID?: string;
