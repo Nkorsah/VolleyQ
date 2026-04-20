@@ -146,6 +146,21 @@ export type CreateVenueRequest = {
   venue_description?: string;
 };
 
+export type CreateQueueEntryRequest = {
+  courtId: string;
+  teamId: string;
+  teamName: string;
+};
+
+
+export type QueueEntry = {
+  id: string;
+  teamId: string;
+  teamName: string;
+  joinedAt: string;
+  position: number;
+}
+
 export type TeamMatchRecord = {
   matchId: string;
   opponent: { id: string; name: string };
@@ -527,6 +542,16 @@ export const fetchMatch = async (matchId: string): Promise<Match> => {
   try {
     const res = await axios.get(`${BASE_URL}/api/matches/${matchId}`);
     console.log('[fetchMatch] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const rotateQueue = async (courtId: string): Promise<QueueEntry[]> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/courts/${courtId}/queue/rotate`);
+    console.log('[rotateQueue] success:', res.data);
     return res.data;
   } catch (err) {
     return handleAxiosError(err);
