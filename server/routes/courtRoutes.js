@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import admin from 'firebase-admin';
 import { db } from '../firebase.js'; 
 import { getUserID } from './teamRoutes.js';
-import { updateUser } from './helper functions/updateEntities.js';
-import { getTeam, getUser } from './helper functions/getEntites.js';
+import { updateUser, updateMatch, updateMatchScore} from './helper functions/updateEntities.js';
+import { getTeam, getUser,  } from './helper functions/getEntites.js';
 
 const router = express.Router();
 
@@ -69,6 +69,8 @@ router.post('/create', async (req, res) => {  // court only passes down the sett
       ongoing: false,
 
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+
     };
 
     // =====================
@@ -205,10 +207,97 @@ router.put('/:courtID/match/queue/advance', async (req, res) => {
     const match = await getMatch(courtID);
     const { queueID, matchID, ongoing } = match;
 
+<<<<<<< Updated upstream
     if (ongoing === true) {
       return res.status(409).json({ message: 'Match is still ongoing. Cannot advance queue' });
     }
 
+=======
+    await queueRef.update({
+      team_queue: admin.firestore.FieldValue.arrayUnion(teamID),
+    });
+    await db.collection("courts").doc(courtID).update({
+    queue_length: admin.firestore.FieldValue.increment(1) // Add 1 to whatever is currently there
+  });
+
+    // const updated = await queueDoc.get();
+  } else { // this means that it is a priority queue 
+    console.log('this is a priority queue. Do some logic here')
+  }
+
+  return team_queue;
+}
+
+const updateCurrentTeamsInMatch = async (courtID, match) => {
+  // 🚫 Don't update if game is in progress
+  if (match.ongoing === true) {
+    console.log("Game in progress. Skipping team update.");
+    return;
+  }
+
+  const team_queue = await getQueue(courtID);
+
+  const updateData = {};
+
+  // ❌ No teams → reset match
+  if (!team_queue || team_queue.length === 0) {
+    updateData.team1 = null;
+    updateData.team2 = null;
+    updateData.ongoing = false;
+
+    await updateMatch(match.matchID, updateData);
+    console.log("Match reset (no teams)");
+    return;
+  }
+
+  // ⚡ Fetch teams in parallel
+  // fetch both teams and if the second team is does not exist, set team 2 to null
+  const [team1, team2] = await Promise.all([
+    getTeam(team_queue[0]),
+    team_queue[1] ? getTeam(team_queue[1]) : null, // if statement in one line
+  ]);
+
+  // ✅ TEAM 1
+  updateData.team1 = {
+    teamID: team1.teamID,
+    team_name: team1.team_name,
+    team_score: 0,
+    team_color: team1.team_settings.team_color,
+  };
+
+  // ✅ TEAM 2 (if exists)
+  updateData.team2 = team2
+    ? {
+        teamID: team2.teamID,
+        team_name: team2.team_name,
+        team_score: 0,
+        team_color: team2.team_settings.team_color,
+      }
+    : null;
+
+  await updateMatch(match.matchID, updateData);
+
+  console.log("Match teams updated!");
+};
+
+// this "deletes" teams from queue
+router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is triggered when the match finishes and the next match is ready to play
+  // advance the queue based on queue type.
+  // once the queue is advnaced, pick the top two teams. 
+  
+  // if game status is playing do not advance. Error. 
+  const {courtID}= req.params
+  
+  try {
+
+    const {queueID, matchID, ongoing} = await getMatch(courtID)
+    // const queueID = matchRef.data().queueID;
+    // const match_status = matchRef.data().ongoing
+    console.log("variables: ",queueID, matchID, ongoing);
+    const matchRef = await db.collection("matches").doc(matchID);
+    const match = await getMatch(courtID);
+      // check if ref exists. 
+>>>>>>> Stashed changes
     const queueDoc = await getQueueDoc(courtID)
     const queue_type = queueDoc.queue_type
     const team_queue = queueDoc.team_queue // the queue that consists of teamIDs.
@@ -401,6 +490,108 @@ router.put('/:courtID/match/start', async (req, res) => { // starts the match
   }
 })
 
+// score function for scoreboard. increments by one
+// router.put('/:courtID/match/update-score', async (req, res) => {
+//   console.log("update-score has been called!");
+//   // verify if user can make this request
+//   const {courtID} = req.params;
+
+//   const { team } = req.body 
+//   // error handle the inputs
+
+//   try { 
+//     console.log('getting matchID')
+//     const match = await getMatch(courtID)
+//     const matchID = match.matchID
+
+//     let team_name = ""
+//      console.log('updating the cosen team')
+//     if(team == 'team1') {
+//       // update team1 score by one
+//       //take the match ID and update the match score
+//       // need the match ref. 
+//       updateMatchScore(matchID, "team1"); 
+      
+//       team_name = match.team1.team_name
+//     } else if (team == 'team2'){
+//       updateMatchScore(matchID, "team2");
+//       team_name = match.team2.team_name
+//     }
+
+//     //score has been updated!
+    
+//     const message = `${team_name} has scored!`
+//     return res.status(200).json({message: message})
+//   } catch (err) {
+//     return res.status(500).json({ message: 'Internal Server Error. Could not end match' });
+//   }
+// })
+
+router.put('/:courtID/match/update-score', async (req, res) => {
+  console.log("update-score has been called!");
+
+  const { courtID } = req.params;
+  const { team } = req.body;
+
+  // ✅ Validate request body
+  if (!courtID) {
+    return res.status(400).json({ message: "courtID is required" });
+  }
+
+  if (!team) {
+    return res.status(400).json({ message: "team is required in body" });
+  }
+
+  if (team !== "team1" && team !== "team2") {
+    return res.status(400).json({ message: "team must be 'team1' or 'team2'" });
+  }
+
+  try {
+    console.log("getting matchID");
+
+    const match = await getMatch(courtID);
+
+    // ✅ Ensure match exists
+    if (!match) {
+      return res.status(404).json({ message: "Match not found for this court" });
+    }
+
+    const matchID = match.matchID;
+
+    let team_name = "";
+
+    console.log("updating the chosen team");
+
+    if (team === "team1") {
+      await updateMatchScore(matchID, "team1");
+
+      if (!match.team1) {
+        return res.status(400).json({ message: "team1 does not exist in match" });
+      }
+
+      team_name = match.team1.team_name;
+    }
+
+    if (team === "team2") {
+      await updateMatchScore(matchID, "team2");
+
+      if (!match.team2) {
+        return res.status(400).json({ message: "team2 does not exist in match" });
+      }
+
+      team_name = match.team2.team_name;
+    }
+
+    return res.status(200).json(`${team_name} has scored!`);
+
+  } catch (err) {
+    console.error("update-score error:", err);
+
+    return res.status(500).json({
+      message: "Internal Server Error. Could not update score",
+    });
+  }
+});
 
 router.put('/:courtID/match/end', async (req, res) => {
   const {courtID} = req.params

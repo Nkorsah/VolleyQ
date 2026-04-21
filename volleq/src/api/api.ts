@@ -349,7 +349,7 @@ export const analyzeTeam = async (teamId: string): Promise<AnalyzeTeamResponse> 
 
 export const createMarker = async (marker: CreateMarkerRequest): Promise<Marker> => {
   try {
-    const res = await axios.post(`${BASE_URL}/api/create-marker`, marker);
+    const res = await api.post(`${BASE_URL}/api/create-marker`, marker);
     console.log('[createMarker] success:', res.data);
     return res.data;
   } catch (err) {

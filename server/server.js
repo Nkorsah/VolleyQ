@@ -56,7 +56,7 @@ try {
 // db = getDatabase()
 
 // getting the routes from other files. 
-import router from './routes/router.js'; // sample router. It has it's own file. 
+// sample router. It has it's own file. 
 import teamRoutes from './routes/teamRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
@@ -77,8 +77,8 @@ const corsOptions = {
 }
 
 app.use(cors(corsOptions));
-router.get('/', (req, res) => res.send('Router working'));
-app.use('/', router) // this refers to the router file for the routes.
+// router.get('/', (req, res) => res.send('Router working'));
+// app.use('/', router) // this refers to the router file for the routes.
 // app.get('/users')
 app.post('/create', async (req, res) => {
     try{

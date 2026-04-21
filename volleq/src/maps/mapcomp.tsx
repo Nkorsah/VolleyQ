@@ -104,6 +104,29 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
     }
   };
 
+  const handleCreateLocation = async () => {
+    if (!pendingPos) return;
+    try {
+      const newVenue = await createVenue({ 
+        venue_name: label, 
+        venue_description: venue_description
+      });
+
+      await addMarker({
+        lat: pendingPos.lat,
+        lng: pendingPos.lng,
+        label: label,
+        venueID: newVenue.venueID
+      });
+
+      setSelected(null);
+      await loadData(); 
+      // if (onVenueActivated) onVenueActivated(); 
+    } catch (err) {
+      console.error("Activation failed", err);
+    }
+  };
+
   return (
     <div style={{ height: '100%', width: '100%' }}>
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
@@ -167,7 +190,7 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
           venueDescription={venue_description} 
           setVenueDescription={setVenue_description} 
           onClose={() => setPendingPos(null)} 
-          onSave={loadData} 
+          onSave={() => handleCreateLocation()} 
         />
       </APIProvider>
     </div>

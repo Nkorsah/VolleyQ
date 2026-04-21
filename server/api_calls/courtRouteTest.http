@@ -63,9 +63,25 @@ PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/m
 Content-Type: application/json
 Authorization: Bearer test 222
 
-
-
 // courtID: 0fff9d77-9509-4abf-b98e-aedc236c1700
 // matchID: ad9dfafd-0daa-4d6b-8f83-7f5d62c236b4
 // QueueID: 6a15de12-fb26-4b67-abd8-7e4c484edf2c
+
+###
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/update-score
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{
+    "team": "team1"
+}
+
+###
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/update-score
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{
+    "team": "team2"
+}
 

@@ -1,13 +1,14 @@
 import express from 'express';
 import { db } from '../firebase.js';
 import { updateVenue } from './helper functions/updateEntities.js';
+import { getUserID } from './teamRoutes.js';
 
 const router = express.Router();
 //we need auth here baaaaad
 router.post('/create-marker', async (req, res) => {
   console.log('/api/create-marker called...');
   try {
-    const { lat, lng, label , venueID} = req.body;
+    const {lat, lng, label , venueID} = req.body;
 
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ message: 'lat and lng are required numbers' });
@@ -16,7 +17,7 @@ router.post('/create-marker', async (req, res) => {
       return res.status(400).json({ message: 'label is required' });
     }
 
-    const uid = '1234567';
+    const uid = await getUserID(req.headers.authorization)
 
     const markerRef = db.collection('markers').doc();
     const marker = {
@@ -33,6 +34,8 @@ router.post('/create-marker', async (req, res) => {
       marker,
       markerID: marker.id
     }
+
+    console.log('update data: ', JSON.stringify(updateData))
     await updateVenue(venueID, updateData)
     await markerRef.set(marker);
 

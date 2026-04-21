@@ -115,7 +115,10 @@ router.post('/create-team', async (req, res) => { // A player makes this request
 
     const team_stats = {
       wins: 0,
-      losses: 0
+      losses: 0,
+      win_rate: 0,
+      highest_win_streak: 0, 
+      current_streak: 0
     }
     
     const team = {

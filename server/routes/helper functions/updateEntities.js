@@ -1,4 +1,5 @@
 import { db } from '../../firebase.js';
+import { admin } from '../../firebase.js';
 // import admin from 'firebase-admin';
 
 export const strictValidateUpdate = (schema, updateData) => {
@@ -98,4 +99,48 @@ export const updateVenue = async (venueID, updateData) => {
   const updated = await venueRef.get();
 
   return updated.data();
+};
+
+export const matchSchema = {
+  matchID: "string",
+  courtID: "string",
+  queueID: "string",
+
+  ongoing: "boolean",
+
+  teamA: "object",
+  teamB: "object",
+
+  createdAt: "object",
+};
+
+export const updateMatch = async (matchID, updateData) => {
+  const matchRef = db.collection("matches").doc(matchID);
+
+  const snap = await matchRef.get();
+  if (!snap.exists) {
+    throw new Error("Match not found");
+  }
+
+  const validUpdate = strictValidateUpdate(matchSchema, updateData);
+
+  if (Object.keys(validUpdate).length === 0) {
+    throw new Error("No valid fields to update");
+  }
+
+  validUpdate.updatedAt = new Date().toISOString();
+
+  await matchRef.update(validUpdate);
+
+  const updated = await matchRef.get();
+  return updated.data();
+};
+
+export const updateMatchScore = async (matchID, team) => {
+  const matchRef = db.collection("matches").doc(matchID);
+
+  await matchRef.update({
+    [`${team}.team_score`]: admin.firestore.FieldValue.increment(1),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 };
