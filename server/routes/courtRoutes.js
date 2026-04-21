@@ -199,18 +199,105 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
 
 })
 
-router.put('/:courtID/match/queue/advance', async (req, res) => {
-  console.log('match/queue/advance called!');
-  const { courtID } = req.params;
+// router.put('/:courtID/match/queue/advance', async (req, res) => {
+//   console.log('match/queue/advance called!');
+//   const { courtID } = req.params;
 
+//   try {
+//     const match = await getMatch(courtID);
+//     const { queueID, matchID, ongoing } = match;
+
+//     if (ongoing === true) {
+//       return res.status(409).json({ message: 'Match is still ongoing. Cannot advance queue' });
+//     }
+
+//     await queueRef.update({
+//       team_queue: admin.firestore.FieldValue.arrayUnion(teamID),
+//     });
+//     await db.collection("courts").doc(courtID).update({
+//     queue_length: admin.firestore.FieldValue.increment(1) // Add 1 to whatever is currently there
+//   });
+
+//     // const updated = await queueDoc.get();
+//   } else { // this means that it is a priority queue 
+//     console.log('this is a priority queue. Do some logic here')
+//   }
+
+//   return team_queue;
+// }
+
+const updateCurrentTeamsInMatch = async (courtID, match) => {
+  // 🚫 Don't update if game is in progress
+  if (match.ongoing === true) {
+    console.log("Game in progress. Skipping team update.");
+    return;
+  }
+
+  const team_queue = await getQueue(courtID);
+
+  const updateData = {};
+
+  // ❌ No teams → reset match
+  if (!team_queue || team_queue.length === 0) {
+    updateData.team1 = null;
+    updateData.team2 = null;
+    updateData.ongoing = false;
+
+    await updateMatch(match.matchID, updateData);
+    console.log("Match reset (no teams)");
+    return;
+  }
+
+  // ⚡ Fetch teams in parallel
+  // fetch both teams and if the second team is does not exist, set team 2 to null
+  const [team1, team2] = await Promise.all([
+    getTeam(team_queue[0]),
+    team_queue[1] ? getTeam(team_queue[1]) : null, // if statement in one line
+  ]);
+
+  // ✅ TEAM 1
+  updateData.team1 = {
+    teamID: team1.teamID,
+    team_name: team1.team_name,
+    team_score: 0,
+    team_color: team1.team_settings.team_color,
+  };
+
+  // ✅ TEAM 2 (if exists)
+  updateData.team2 = team2
+    ? {
+        teamID: team2.teamID,
+        team_name: team2.team_name,
+        team_score: 0,
+        team_color: team2.team_settings.team_color,
+      }
+    : null;
+
+  await updateMatch(match.matchID, updateData);
+
+  console.log("Match teams updated!");
+};
+
+// this "deletes" teams from queue
+router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is triggered when the match finishes and the next match is ready to play
+  // advance the queue based on queue type.
+  // once the queue is advnaced, pick the top two teams. 
+  
+  // if game status is playing do not advance. Error. 
+  const {courtID}= req.params
+  
   try {
-    const match = await getMatch(courtID);
-    const { queueID, matchID, ongoing } = match;
 
-    if (ongoing === true) {
+    const {queueID, matchID, ongoing} = await getMatch(courtID)
+     if (ongoing === true) {
       return res.status(409).json({ message: 'Match is still ongoing. Cannot advance queue' });
     }
-
+    // const queueID = matchRef.data().queueID;
+    // const match_status = matchRef.data().ongoing
+    console.log("variables: ",queueID, matchID, ongoing);
+    const matchRef = await db.collection("matches").doc(matchID);
+    const match = await getMatch(courtID);
+      // check if ref exists. 
     const queueDoc = await getQueueDoc(courtID)
     const queue_type = queueDoc.queue_type
     const team_queue = queueDoc.team_queue // the queue that consists of teamIDs.
@@ -220,7 +307,7 @@ router.put('/:courtID/match/queue/advance', async (req, res) => {
     }
 
     const queueRef = db.collection('queues').doc(queueID);
-    const matchRef = db.collection('matches').doc(matchID);
+    // const matchRef = db.collection('matches').doc(matchID);
 
     if (queue_type === 'FIFO') {
       // remove the first team from list and update the match element
@@ -629,55 +716,6 @@ async function addTeamToQueue(courtID, queueID, teamID) {
     console.log('Priority queue — implement logic here');
   }
 }
-
-const updateCurrentTeamsInMatch = async (courtID, match) => { // array is already updated so pull the first two entries
-  // point to the first two entries of the array. if array is empty set ongoing status to false
-  
-    // might make a function for this. Updates the match entity
-
-  
-  const team_queue = await getQueue(courtID);
-  const matchRef = db.collection('matches').doc(match.matchID);
-    // put the first two entries in team A and team B
-    // 
-    // team A is always guaranteed because of this function. 
-    // I can turn this into a seperate function because I will have to repeat updating the top two teams.
-  if (match.ongoing === true) {
-    console.log('Game in progress — will not update teams');
-    return;
-  }
-
-  if (team_queue.length === 0) {
-    await matchRef.update({ team1: null, team2: null, ongoing: false });
-    return;
-  }
-
-  const team1 = await getTeam(team_queue[0]);
-  const team1_data = {
-    teamID: team1.teamID,
-    team_name: team1.team_name,
-    team_score: 0,
-    team_color: team1.team_settings.team_color,
-  };
-  await matchRef.update({ // write the teams to the match
-    team1: team1_data,
-  });
-  console.log('team1 added!');
-
-  if (team_queue.length >= 2) { // adding the second team
-    const team2 = await getTeam(team_queue[1]);
-    const team2_data = {
-      teamID: team2.teamID,
-      team_name: team2.team_name,
-      team_score: 0,
-      team_color: team2.team_settings.team_color,
-    };
-    await matchRef.update({ 
-      team2: team2_data, 
-    });
-    console.log('team2 added!');
-  }
-};
 
 //helper function
 const getQueueDoc = async (courtID) => {

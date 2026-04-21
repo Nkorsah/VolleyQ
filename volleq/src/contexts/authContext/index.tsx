@@ -1,24 +1,20 @@
 // src/contexts/authContext/index.tsx
-import React, { useContext, ReactNode } from "react";
-import { useMergedUser } from "../../hooks/useMergedUser";
-import type { AppUser } from "../../../../server/AppUser";
+import React, { useContext, useEffect, useState, ReactNode } from "react";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { auth } from "../../firebase/firebase-service";
 
 // -----------------
 // Context type
 // -----------------
 interface AuthContextType {
-  currentUser: AppUser | null;  // merged user
+  currentUser: FirebaseUser | null;
   userLoggedIn: boolean;
   loading: boolean;
 }
 
 // -----------------
-// Create context
-// -----------------
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-// -----------------
-// Custom hook
 // -----------------
 export function useAuth() {
   const context = useContext(AuthContext);
@@ -27,27 +23,28 @@ export function useAuth() {
 }
 
 // -----------------
-// Provider props
-// -----------------
-interface AuthProviderProps {
-  children: ReactNode;
-}
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-// -----------------
-// AuthProvider
-// -----------------
-export function AuthProvider({ children }: AuthProviderProps) {
-  const { user: mergedUser, loading } = useMergedUser(); // use merged user hook
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const value: AuthContextType = {
-    currentUser: mergedUser,
-    userLoggedIn: !!mergedUser,
+    currentUser,
+    userLoggedIn: !!currentUser,
     loading,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children} {/* wait until merged user is ready */}
+      {!loading && children}
     </AuthContext.Provider>
   );
 }
