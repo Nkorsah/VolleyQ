@@ -1,3 +1,87 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { BrowserRouter, Navigate } from 'react-router-dom';
+import Register from '../pages/Register.tsx';
+import { useAuth } from '../contexts/authContext/index.tsx';
+import * as authFuncs from '../firebase/auth.ts';
+import * as apiFuncs from '../api/api.ts';
+import { useUserStore } from '../store/user.ts';
+
+// 1. Mock Navigation and Routing
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom') as any;
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    // We mock Navigate to verify redirection logic
+    Navigate: vi.fn(({ to }) => <div data-testid="navigate" data-to={to} />),
+  };
+});
+
+// 2. Mock Custom Hooks and External API/Auth functions
+vi.mock('../contexts/authContext/index.tsx', () => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock('../firebase/auth.ts', () => ({
+  doCreateUserWithEmailAndPassword: vi.fn(),
+}));
+
+vi.mock('../api/api.ts', () => ({
+  createUser: vi.fn(),
+}));
+
+vi.mock('../store/user.ts', () => ({
+  useUserStore: vi.fn(),
+}));
+
+describe('Register Page', () => {
+  const mockSetJustRegistered = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default State: User is not logged in
+    (useAuth as any).mockReturnValue({ userLoggedIn: false });
+
+    // Mock Zustand implementation for setJustRegistered
+    (useUserStore as any).mockImplementation((selector: any) => {
+      const state = {
+        setJustRegistered: mockSetJustRegistered,
+      };
+      return selector(state);
+    });
+  });
+
+
+  it('redirects to home if user is already logged in', () => {
+    (useAuth as any).mockReturnValue({ userLoggedIn: true });
+
+    render(
+      <BrowserRouter>
+        <Register />
+      </BrowserRouter>
+    );
+
+    const navigateEl = screen.getByTestId('navigate');
+    expect(navigateEl).toHaveAttribute('data-to', '/home');
+  });
+
+  it('navigates to login page when Login link is clicked', () => {
+    render(
+      <BrowserRouter>
+        <Register />
+      </BrowserRouter>
+    );
+
+    const loginLink = screen.getByText(/Login/i, { selector: 'span' });
+    fireEvent.click(loginLink);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+});
+
 /* import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
