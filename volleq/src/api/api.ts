@@ -170,6 +170,42 @@ export type TeamMatchRecord = {
   playedAt: string;
 };
 
+
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export type QueueStatus = 'playing' | 'on_deck' | 'waiting';
+
+export type PriorityQueueEntry = {
+  teamID: string;
+  name: string;
+  skill_level: SkillLevel;
+  joinedAt: string;
+  position: number;
+  status: QueueStatus;
+};
+
+export type AdvanceQueueResponse = {
+  message: string;
+  team_queue: any[];
+  removed_teamID?: string;
+  team1?: { teamID: string; skill_level: SkillLevel };
+  team2?: { teamID: string; skill_level: SkillLevel };
+  same_skill_level?: boolean;
+};
+
+export type UserSettings = {
+  skill_level: SkillLevel;
+  name: string;
+  email: string;
+  avatarUrl: string;
+};
+
+export type UpdateSkillResponse = {
+  message: string;
+  skill_level: SkillLevel;
+  teams_updated: number;
+};
+
 type settings = {
   
 }
@@ -558,6 +594,34 @@ export const rotateQueue = async (courtId: string): Promise<QueueEntry[]> => {
   }
 };
 
+export const fetchUserSettings = async (token: string): Promise<UserSettings> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/user/settings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('[fetchUserSettings] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const updateSkillLevel = async (
+  skill_level: SkillLevel,
+  token: string
+): Promise<UpdateSkillResponse> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/user/settings/skill`,
+      { skill_level },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[updateSkillLevel] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
 
 // I can use a snapshot listener
 // export const getVenueByID = async (): Promise<Venue[]> => {

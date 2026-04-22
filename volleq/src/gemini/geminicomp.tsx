@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { analyzeTeam, isOwner, getWinRate } from '../api/teamcreation';
-import type { Team } from '../pages/api';
+import type { Team } from '../api/api';
 
 type Props = {
   team: Team;

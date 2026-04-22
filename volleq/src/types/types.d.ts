@@ -12,6 +12,8 @@
 //   // Add any other custom fields here, e.g. role, stats
 // };
 
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export type User = {
   userID: string;
   name: string;
@@ -23,6 +25,7 @@ export type User = {
   team_name?:string;
   locationID?: string;
   location_name?: string;
+  skill_level?: SkillLevel;
 
   current_teamID?: string;
 
@@ -45,6 +48,8 @@ export type Team = {
   teamID: string;
   team_name: string;
   owner_id: string;
+  difficulty_rating: number;
+  queue_time: string;
 
   members: TeamMember[];
 

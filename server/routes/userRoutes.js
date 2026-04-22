@@ -1,4 +1,7 @@
 import express from 'express';
+import { db } from '../firebase.js';
+import { calculateTeamSkillLevel } from './helper functions/skillLevel.js';
+import { getUserID } from './teamRoutes.js';
 const router = express.Router();
 import jwt from 'jsonwebtoken'
 // const admin = require('firebase-admin'); 
@@ -262,6 +265,79 @@ router.delete('/user/delete', async (req, res) => {
 });
 
 
+router.put('/settings/skill', async (req, res) => {
+  console.log('/api/user/settings/skill called...');
+  try {
+    const { skill_level } = req.body;
+
+    const valid = ['Beginner', 'Intermediate', 'Advanced'];
+    if (!valid.includes(skill_level)) {
+      return res.status(400).json({ message: 'skill_level must be Beginner, Intermediate, and Advanced' });
+    }
+
+    const userID = await getUserID(req.headers.authorization);
+
+    await db.collection('users').doc(userID).update({ skill_level });
+    console.log(`User ${userID} skill level set to ${skill_level}`);
+
+    // recalc team overall skill level when user joins/leaves
+    const teamsSnap = await db.collection('teams')
+      .where('memberIds', 'array-contains', userID)
+      .get();
+
+    if (!teamsSnap.empty) {
+      const batch = db.batch();
+
+      await Promise.all(
+        teamsSnap.docs.map(async teamDoc => {
+          const { skill_level: new_skill, skill_score } =
+            await calculateTeamSkillLevel(teamDoc.id, db);
+
+          batch.update(db.collection('teams').doc(teamDoc.id), {
+            skill_level: new_skill,
+            skill_score,
+          });
+
+          console.log(`Team ${teamDoc.id} skill recalculated → ${new_skill} (${skill_score})`);
+        })
+      );
+
+      await batch.commit();
+    }
+
+    return res.status(200).json({
+      message: 'Skill level updated',
+      skill_level,
+      teams_updated: teamsSnap.size,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+router.get('/settings', async (req, res) => {
+  console.log('/api/user/settings called...');
+  try {
+    const userID = await getUserID(req.headers.authorization);
+    const userSnap = await db.collection('users').doc(userID).get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { skill_level, name, email, avatarUrl } = userSnap.data();
+
+    return res.status(200).json({ skill_level: skill_level ?? 'Beginner', name, email, avatarUrl });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+export default router;
+
+
 
 
 
@@ -277,5 +353,7 @@ router.delete('/user/delete', async (req, res) => {
 //         res.status(500).json({ message: 'Internal Server Error' });
 //     }
 // });
+
+
 
 export default router;

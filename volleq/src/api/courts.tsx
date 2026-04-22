@@ -5,11 +5,24 @@ import {
   advanceQueue,
   startMatch,
   endMatch,
+  updateSkillLevel as updateSkillLevelRequest,
+  type SkillLevel,
   type Match,
   type HydratedQueueEntry,
   type CreateCourtRequest,
   type CreateCourtResponse,
+  type PriorityQueueEntry
 } from './api';
+
+
+export const SKILL_LEVELS: SkillLevel[] = ['beginner', 'intermediate', 'advanced'];
+
+export const SKILL_LABELS: Record<SkillLevel, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
+
 
 export async function createNewCourt(
   data: CreateCourtRequest,
@@ -43,10 +56,7 @@ export async function joinCourtQueue(courtID: string, token: string): Promise<{
   return joinQueue(courtID, token);
 }
 
-export async function advanceCourtQueue(courtID: string, token: string): Promise<{
-  message: string;
-  removed_teamID?: string;
-}> {
+export async function advanceCourtQueue(courtID: string, token: string) {
   if (!courtID) throw new Error('courtID is required');
   if (!token) throw new Error('Auth token is required');
 
@@ -106,4 +116,33 @@ export function getMatchWinner(match: Match): string | null {
   return match.team1.team_score > match.team2.team_score
     ? match.team1.teamID
     : match.team2.teamID;
+}
+
+/* export async function setTeamSkillLevel(
+  teamID: string,
+  skill_level: SkillLevel,
+  token: string
+) {
+  if (!teamID) throw new Error('teamID is required');
+  if (!SKILL_LEVELS.includes(skill_level)) {
+    throw new Error('skill_level must be basic, intermediate, or professional');
+  }
+  if (!token) throw new Error('Auth token is required');
+
+  return updateSkillLevelRequest(teamID, skill_level, token);
+}
+*/
+
+export function groupQueueBySkill(
+  queue: PriorityQueueEntry[]
+): Record<SkillLevel, PriorityQueueEntry[]> {
+  return {
+    beginner: queue.filter(e => e.skill_level === 'beginner'),
+    intermediate: queue.filter(e => e.skill_level === 'intermediate'),
+    advanced: queue.filter(e => e.skill_level === 'advanced'),
+  };
+}
+
+export function getSkillLabel(skill_level: SkillLevel): string {
+  return SKILL_LABELS[skill_level] ?? skill_level;
 }

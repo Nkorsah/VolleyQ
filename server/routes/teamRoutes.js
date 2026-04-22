@@ -4,6 +4,7 @@ import { userAuthInfo } from './userRoutes.js';
 import gemini from '../gemini.js';
 import { v4 as uuidv4 } from "uuid";
 import { updateUser } from './helper functions/updateEntities.js';
+import { calculateTeamSkillLevel } from './helper functions/skillLevel.js';
 
 const router = express.Router();
 
@@ -314,6 +315,9 @@ if (isAlreadyMember) {
     const updatedTeamDoc = await teamRef.get();
     res.status(200).json({ message: "Joined team successfully", team: updatedTeamDoc.data() });
 
+    // Recalculate overall Team Skill Score
+    await recalculateTeamSkill(teamID);
+
   } catch (err) {
     console.error("Error in /join-team:", err);
     res.status(500).json({ message: "Internal Server Error", error: err.message });
@@ -388,6 +392,10 @@ router.delete('/leave-team/:teamID', async (req, res) => { // work on transferin
       message: "User removed from team",
       team: updatedTeamDoc.data()
     });
+
+
+    // Recalculate overall team skill score
+    await recalculateTeamSkill(teamID);
 
   } catch (err) {
     console.error("Error in /leave-team:", err);
@@ -720,5 +728,38 @@ router.post('/analyze-team/:teamId', async (req, res) => {// Don't think I need 
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
+router.put('/:teamID/skill', async (req, res) => {
+  const { teamID } = req.params;
+  const { skill_level } = req.body;
+
+  const valid = ['Beginner', 'Intermediate', 'Advanced'];
+  if (!valid.includes(skill_level)) {
+    return res.status(400).json({ message: 'skill_level must be Beginner, Intermediate, or Advanced' });
+  }
+
+  try {
+    const userID = await getUserID(req.headers.authorization);
+    const user = await getUser(userID);
+
+    if (user.teamID !== teamID) {
+      return res.status(403).json({ message: 'You can only update your own team skill level' });
+    }
+
+    await db.collection('teams').doc(teamID).update({ skill_level });
+
+    return res.status(200).json({ message: 'Skill level updated', skill_level });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+async function recalculateTeamSkill(teamID) {
+  const { skill_level, skill_score } = await calculateTeamSkillLevel(teamID, db);
+  await db.collection('teams').doc(teamID).update({ skill_level, skill_score });
+  console.log(`Team ${teamID} skill recalculated → ${skill_level} (${skill_score})`);
+}
+
 
 export default router;
