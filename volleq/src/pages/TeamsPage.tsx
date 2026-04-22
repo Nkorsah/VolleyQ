@@ -2,7 +2,7 @@ import { useState, useEffect, JSX } from "react";
 import { useUserStore } from "../store/user.ts";
 import { useTeamStore } from "../store/team.ts";
 import { db } from "../firebase/firebase-service";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot, query,   where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { createTeam as createTeamAPI } from "../api/api";
 import { Team } from "../types/types";
@@ -44,29 +44,33 @@ export default function TeamsPage({
   const isHost = currentTeam?.ownerId === user?.userID;
 
   // --- LIVE LISTENER: Watch for ALL teams online (Real-time List) ---
-  useEffect(() => {
-    const q = query(collection(db, "teams"));
+  
+useEffect(() => {
+  if (!venueID) return; // guard
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const teamsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+  const q = query(
+    collection(db, "teams"),
+    where("venueID", "==", venueID)
+  );
 
-      // we use a constant MAX_PLAYERS
-      setOpenTeams(
-        teamsData.filter((t: any) => {
-          // Using memberIds from the Team type
-          const currentCount = Array.isArray(t.memberIds)
-            ? t.memberIds.length
-            : 0;
-          return currentCount < MAX_PLAYERS;
-        }),
-      );
-    });
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const teamsData = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-    return () => unsubscribe();
-  }, []);
+    setOpenTeams(
+      teamsData.filter((t: any) => {
+        const currentCount = Array.isArray(t.memberIds)
+          ? t.memberIds.length
+          : 0;
+        return currentCount < MAX_PLAYERS;
+      })
+    );
+  });
+
+  return () => unsubscribe();
+}, [venueID]);
 
   // --- LOBBY SYNC: ensure Lobby view stays updated via Snapshot ---
   useEffect(() => {
