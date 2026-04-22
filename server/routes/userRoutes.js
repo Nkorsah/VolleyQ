@@ -1,22 +1,23 @@
 import express from 'express';
 import { db } from '../firebase.js';
+import { getDatabase, ref, set } from "firebase/database";
 import { calculateTeamSkillLevel } from './helper functions/skillLevel.js';
 import { getUserID } from './teamRoutes.js';
+import { Timestamp } from 'firebase-admin/firestore';
+import { stat } from 'fs';
+import { updateUser, strictValidateUpdate } from './helper functions/updateEntities.js';
+import admin from 'firebase-admin';
 const router = express.Router();
 import jwt from 'jsonwebtoken'
 // const admin = require('firebase-admin'); 
 
-import { db } from '../firebase.js';
 
-import admin from 'firebase-admin';
 
-import { getDatabase, ref, set } from "firebase/database";
-import { Timestamp } from 'firebase-admin/firestore';
-import { stat } from 'fs';
-import { getUserID } from './teamRoutes.js';
-import { updateUser } from './helper functions/updateEntities.js';
 
-import { strictValidateUpdate } from './helper functions/updateEntities.js';
+
+
+
+
 
 // router.post('/get-token', (req, res) => {
 //     const {user, password} = req.body
@@ -334,8 +335,6 @@ router.get('/settings', async (req, res) => {
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 });
-
-export default router;
 
 
 
