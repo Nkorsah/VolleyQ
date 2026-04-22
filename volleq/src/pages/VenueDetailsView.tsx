@@ -6,36 +6,83 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useState, JSX } from "react";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
+import { useEffect } from "react";
+import { useUserSync } from "../store/user";
+import { kickMember, leaveTeam, promoteToLeader } from "../api/api";
 
 type SubView = "menu" | "teams" | "waitlist" | "host";
 
 export default function VenueDetailsView(): JSX.Element {
+  const { subscribeToTeam } = useTeamStore();
+  useUserSync();
+
   const [activeSubView, setActiveSubView] = useState<SubView>("menu");
   const [showTeamModal, setShowTeamModal] = useState(false);
   
-  const { venue_name } = useParams();
+  const { venue_name, venueID } = useParams();
   const navigate = useNavigate();
 
   const user = useUserStore((state) => state.user);
-  const updateUser = useUserStore((state) => state.updateUser);
-  const { currentTeam, teamMembers, resetTeam, setTeam, removeMember } = useTeamStore();
 
-  const isInTeam = !!(user?.teamID || currentTeam?.id);
-  const isHost = currentTeam?.hostID === user?.userID;
+  
+  const updateUser = useUserStore((state) => state.updateUser);
+  const { currentTeam, resetTeam } = useTeamStore();
+
+  const teamMembers = currentTeam?.members ?? [];
+
+
+  const isInTeam = !!user?.teamID;
+  const isHost = currentTeam?.owner_id === user?.userID;
+
+  // if 
+ 
+ useEffect(() => { // live snapshot for team
+  if (!user?.teamID) return;
+
+  subscribeToTeam(user.teamID);
+
+}, [user?.teamID]);
+
+  useEffect(() => {
+  const run = async () => {
+    if (!user?.teamID) return;
+    if (!currentTeam?.venueID) return;
+    if (!venueID) return;
+
+    if (currentTeam.venueID !== venueID) {
+      await leaveTeam(user.teamID);
+
+      resetTeam();
+      updateUser({ teamID: undefined });
+    }
+  };
+
+  run();
+  }, [currentTeam?.venueID, venueID, user?.teamID]);
+
+useEffect(() => {
+  console.log('current user:', user)
+  console.log("🧠 currentTeam changed:", currentTeam);
+  console.log("teammembers:", teamMembers)
+}, [currentTeam]);
 
   const handleExitTeam = () => {
     resetTeam();
-    updateUser({ teamID: null });
+    updateUser({ teamID: undefined });
     setShowTeamModal(false);
   };
 
-  const handleTransferHost = (newHostID: string) => {
+  const handleTransferLeader = async (newleaderId: string) => {
+    // api call to backend and zustand is source of truth
     if (!currentTeam) return;
-    setTeam({ ...currentTeam, hostID: newHostID });
+    await promoteToLeader(newleaderId);
+    // setTeam({ ...currentTeam, owner_id: newHostID });
   };
 
-  const handleKickPlayer = (playerID: string) => {
-    removeMember(playerID);
+  const handleKickPlayer = async (playerID: string) => {
+    // removeMember(playerID);
+
+    await kickMember(playerID);
   };
 
   return (
@@ -49,10 +96,9 @@ export default function VenueDetailsView(): JSX.Element {
       >
         {activeSubView === "menu" && (
           <div className="flex flex-col items-center pt-12">
-            <button 
-              onClick={() => navigate("/map")} 
-              className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline"
-            >
+            <button onClick={() =>{ resetTeam();
+              navigate("/map")}} 
+              className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline">
               ← Back to Map
             </button>
 
@@ -84,7 +130,7 @@ export default function VenueDetailsView(): JSX.Element {
                   onClick={() => setShowTeamModal(true)} 
                   className="w-full py-6 bg-[#f7e49a] border border-gray-400 rounded-xl text-xl font-medium shadow-sm hover:bg-[#f2db82] flex items-center justify-center gap-3"
                 >
-                  My Team
+                  Manage Team
                 </button>
               )}
             </div>
@@ -97,8 +143,8 @@ export default function VenueDetailsView(): JSX.Element {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-2xl font-black uppercase italic tracking-tight">
-                    {currentTeam?.name || "The Squad"}
-                  </h3>
+                    {currentTeam?.team_name || "The Squad"}
+                    </h3>
                   <p className="text-xs font-bold text-gray-500 uppercase">Management</p>
                 </div>
                 <button 
@@ -111,41 +157,52 @@ export default function VenueDetailsView(): JSX.Element {
 
               <div className="flex-1 overflow-y-auto mb-6 border-2 border-black bg-gray-50 rounded-lg">
                 <div className="p-2 border-b-2 border-black bg-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-600">
-                  Roster ({(teamMembers?.length || 0)} / {currentTeam?.maxPlayers || 6})
+                  Roster ({teamMembers.length} / {currentTeam?.team_settings.number_of_players})
                 </div>
-                {(teamMembers || []).map((mID) => {
-                  const isPlayerHost = mID === currentTeam?.hostID;
-                  const isMe = mID === user?.userID;
+                {teamMembers.map((member) => {
+                  const isPlayerHost = member.userID === currentTeam?.owner_id;
+                  const isMe = member.userID === user?.userID;
 
                   return (
-                    <div key={mID} className="flex items-center justify-between p-3 border-b border-gray-200 last:border-0">
+                    <div key={member.userID} className="flex items-center justify-between p-3 border-b border-gray-200 last:border-0">
+                      
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${mID}`} 
-                            className="w-10 h-10 rounded-full border-2 border-black bg-white" 
-                            alt="avatar" 
+                          <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userID}`}
+                            className="w-10 h-10 rounded-full border-2 border-black bg-white"
+                            alt="avatar"
                           />
-                          {isPlayerHost && <span className="absolute -top-2 -right-1 text-lg">👑</span>}
+
+                          {isPlayerHost && (
+                            <span className="absolute -top-2 -right-1 text-lg">👑</span>
+                          )}
                         </div>
+
                         <div className="flex flex-col">
                           <span className="font-bold text-sm uppercase">
-                            {isMe ? "You" : `User_${mID.slice(-4)}`}
+                            {isMe ? "You" : member.name || `User_${member.userID.slice(-4)}`}
                           </span>
-                          {isPlayerHost && <span className="text-[10px] font-bold text-blue-600 uppercase">Host</span>}
+
+                          {isPlayerHost && (
+                            <span className="text-[10px] font-bold text-blue-600 uppercase">
+                              Host
+                            </span>
+                          )}
                         </div>
                       </div>
 
                       {isHost && !isMe && (
                         <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleTransferHost(mID)}
+                          <button
+                            onClick={() => handleTransferLeader(member.userID)}
                             className="p-1 hover:bg-blue-100 rounded border border-transparent hover:border-blue-400 text-xs"
                           >
                             👑
                           </button>
-                          <button 
-                            onClick={() => handleKickPlayer(mID)}
+
+                          <button
+                            onClick={() => handleKickPlayer(member.userID)}
                             className="p-1 hover:bg-red-100 rounded border border-transparent hover:border-red-400 text-xs"
                           >
                             🚫
@@ -154,7 +211,8 @@ export default function VenueDetailsView(): JSX.Element {
                       )}
                     </div>
                   );
-                })}
+                })
+                }
               </div>
 
               <div className="flex flex-col gap-3 mt-auto">
@@ -162,7 +220,7 @@ export default function VenueDetailsView(): JSX.Element {
                   onClick={handleExitTeam}
                   className="w-full py-4 bg-red-500 text-white border-2 border-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
                 >
-                  {isHost ? "Delete Team" : "Leave Team"}
+                  {isHost ? "Disband Team" : "Leave Team"}
                 </button>
                 <button 
                   onClick={() => setShowTeamModal(false)} 

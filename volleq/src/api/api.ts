@@ -114,7 +114,7 @@ export type HydratedQueueEntry = {
 export type CreateCourtRequest = {
   court_name: string;
   max_teams_in_queue: number;
-  queue_type: 'FIFO' | 'CIRCULAR' | 'Priority Queue';
+  queue_type: 'FIFO' | 'CIRCULAR' | 'PRIORITY QUEUE';
   score_limit: number;
   venueID: string;
 };
@@ -318,11 +318,47 @@ export const fetchTeams = async (): Promise<Team[]> => {
 
 export const joinTeam = async (teamId: string): Promise<Team> => {
   try {
-    const res = await api.put(`/api/join-team/${teamId}`);
+    const res = await api.put(`/api/team/join-team/${teamId}`);
     console.log('[joinTeam] success:', res.data);
     return res.data;
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err);
+  }
+};
+
+export const leaveTeam = async (teamId: string): Promise<Team> => {
+  try {
+    const res = await api.delete(`/api/team/leave-team/${teamId}`);
+    console.log('[leaveTeam] success:', res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const promoteToLeader = async (
+  newLeaderID: string
+): Promise<{ message: string; members: any[] }> => {
+  try {
+    const res = await api.put(`/api/team/promote/${newLeaderID}`);
+
+    console.log("[promoteToLeader] success:", res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const kickMember = async (
+  userID: string
+): Promise<{ message: string; team: any }> => {
+  try {
+    const res = await api.delete(`/api/team/kick/${userID}`);
+
+    console.log("[kickMember] success:", res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
   }
 };
 
@@ -451,13 +487,10 @@ export const fetchTeamsAtVenue = async (venueID: string): Promise<Team[]> => {
 };
 
 export const createCourt = async (
-  data: CreateCourtRequest,
-  token: string
+  data: CreateCourtRequest
 ): Promise<CreateCourtResponse> => {
   try {
-    const res = await axios.post(`${BASE_URL}/api/venue/court/create`, data, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await api.post(`${BASE_URL}/api/venue/court/create`, data);
     console.log('[createCourt] success:', res.data);
     return res.data;
   } catch (err) {

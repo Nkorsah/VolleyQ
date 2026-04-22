@@ -124,7 +124,7 @@ Content-Type: application/json
 Authorization: Bearer test 666
 
 ### // liam joins team
-PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+PUT http://localhost:8080/api/team/join-team/42e3da93-2c20-4540-a2d7-14c7adb3e1fa
 Content-Type: application/json
 Authorization: Bearer test 777
 
@@ -156,7 +156,7 @@ DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
 Authorization: Bearer test 666
 
 ### // liam (777) leaves team
-DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+DELETE http://localhost:8080/api/team/leave-team/0c722444-ab0f-4b97-a3cb-df69e20dcb78
 Authorization: Bearer test 777
 
 ### // olivia (888) leaves team

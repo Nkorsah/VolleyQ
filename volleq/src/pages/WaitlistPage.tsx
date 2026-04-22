@@ -1,4 +1,6 @@
 import { useState, JSX } from "react";
+import { useUserSync } from "../store/user";
+import { useUserStore } from "../store/user";
 
 interface Props {
   onBack: () => void;
@@ -13,6 +15,8 @@ export default function WaitlistPage({
   isHost = false, 
   initialWinningScore = 21 
 }: Props): JSX.Element {
+
+  useUserSync();
   const [view, setView] = useState<WaitlistView>("court_list");
   const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
   const [myCurrentCourt, setMyCurrentCourt] = useState<string | null>(null);
@@ -38,6 +42,10 @@ export default function WaitlistPage({
   const handleLeaveCourt = () => {
     setMyCurrentCourt(null);
   };
+
+  const user = useUserStore((state) => state.user);
+  user?.teamID
+  // make a useEffect hook for getting the courts
 
   const updateScore = (team: 'A' | 'B', delta: number) => {
     if (winner) return;
@@ -111,8 +119,8 @@ export default function WaitlistPage({
           })}
         </div>
 
-        {/* --- ADDED: PLAYER-ONLY STATUS BAR --- */}
-        {!isHost && (
+        {/* --- ADDED: PLAYER-ONLY STATUS BAR --- (if you're not on a team, you won't see it) */}
+        {!isHost && user?.teamID && (
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white border-4 border-black p-4 flex items-center gap-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] z-50 animate-bounce-subtle">
             <div className="w-10 h-10 bg-yellow-400 border-2 border-black rounded-full flex items-center justify-center">
               <span className="animate-pulse text-xl">⏳</span>

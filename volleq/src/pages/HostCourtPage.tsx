@@ -1,4 +1,7 @@
 import { useState, JSX } from "react";
+import { CreateCourtRequest, createCourt} from "../api/api";
+import { useParams } from "react-router-dom";
+import { useUserSync } from "../store/user";
 
 interface Props {
   onBack: () => void;
@@ -7,36 +10,63 @@ interface Props {
 type HostView = "settings" | "select_queue" | "hosted";
 
 export default function HostCourtPage({ onBack }: Props): JSX.Element {
+
+  useUserSync();
   const [view, setView] = useState<HostView>("settings");
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { venueID } = useParams();
 
   // --- NEW EDITABLE STATE ---
   const [maxTeams, setMaxTeams] = useState(8);
   const [courtName, setCourtName] = useState("COURT 1");
   const [scoreLimit, setScoreLimit] = useState(25);
 
+  type QueueType = "FIFO" | "PRIORITY QUEUE" | "CIRCULAR";
+
   const queueOptions = [
     {
+      type: "FIFO" as QueueType,
       title: "FIFO",
-      description: "Join the standard line. You'll play in the exact order you signed up.",
-      icon: "⬛" 
+      description: "Join the standard line...",
+      icon: "⬛"
     },
     {
+      type: "PRIORITY QUEUE" as QueueType,
       title: "PRIORITY QUEUE",
-      description: "Get scheduled based on priority competitive level, ranking, or a special attribute when you play.",
-      icon: "🥞" 
+      description: "Get scheduled based on priority...",
+      icon: "🥞"
     },
     {
-      title: "CIRCULAR QUEUE",
-      description: "Stay in rotation once you finish a game, you go back into the cycle and will play again when your turn comes around.",
-      icon: "🔄" 
+      type: "CIRCULAR" as QueueType,
+      title: "CIRCULAR QUEUE", // 👈 UI only
+      description: "Stay in rotation...",
+      icon: "🔄"
     }
   ];
+
+  const currentQueue = queueOptions[currentIndex];
+
+  const createNewCourt = () => {
+
+    if (!venueID) {
+    console.error("venueID is missing");
+    return; // or show UI error
+  }
+
+    const court_settings = {
+      court_name: courtName,
+      max_teams_in_queue: maxTeams,
+      queue_type: currentQueue.type,
+      score_limit: scoreLimit,
+      venueID: venueID
+    }
+    createCourt(court_settings);
+    setView("hosted");
+  }
 
   const handleNext = () => setCurrentIndex((prev) => (prev + 1) % queueOptions.length);
   const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + queueOptions.length) % queueOptions.length);
 
-  const currentQueue = queueOptions[currentIndex];
 
   // --- 1. SETTINGS VIEW ---
   if (view === "settings") {
@@ -121,7 +151,7 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
 
           <div className="mt-12">
             <button 
-              onClick={() => setView("hosted")} 
+              onClick={() => createNewCourt()} 
               className="w-full py-4 bg-[#f7e49a] border-2 border-black font-black text-xl rounded-lg uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all hover:bg-[#f2db82]"
             >
               Create Court

@@ -4,9 +4,11 @@ import { useTeamStore } from "../store/team.ts";
 import { db } from "../firebase/firebase-service";
 import { collection, onSnapshot, query,   where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { createTeam as createTeamAPI } from "../api/api";
+import { createTeam, createTeam as createTeamAPI, joinTeam, leaveTeam } from "../api/api";
 import { Team } from "../types/types";
 import { useParams } from "react-router-dom";
+import { useUserSync } from "../store/user.ts";
+import TeamCard from "../components/TeamCard.tsx";
 
 interface TeamsPageProps {
   onBack: () => void;
@@ -21,7 +23,10 @@ export default function TeamsPage({
   onBack,
   onViewWaitlist,
 }: TeamsPageProps): JSX.Element {
-  const setTeam = useTeamStore().setTeam
+  useUserSync();
+
+
+
   const { venueID } = useParams();
 
   const [view, setView] = useState<TeamsView>("choice");
@@ -41,72 +46,64 @@ export default function TeamsPage({
 
   const auth = getAuth();
   // Using ownerId to match the Team type in types.d.ts
-  const isHost = currentTeam?.ownerId === user?.userID;
+  const isHost = currentTeam?.owner_id === user?.userID;
 
-  // --- LIVE LISTENER: Watch for ALL teams online (Real-time List) ---
-  
-useEffect(() => {
-  if (!venueID) return; // guard
-
-  const q = query(
-    collection(db, "teams"),
-    where("venueID", "==", venueID)
-  );
-
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const teamsData = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    setOpenTeams(
-      teamsData.filter((t: any) => {
-        const currentCount = Array.isArray(t.memberIds)
-          ? t.memberIds.length
-          : 0;
-        return currentCount < MAX_PLAYERS;
-      })
-    );
-  });
-
-  return () => unsubscribe();
-}, [venueID]);
-
-  // --- LOBBY SYNC: ensure Lobby view stays updated via Snapshot ---
+  // live reloading for teams
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    if (!user?.teamID) return;
 
-    if (user?.teamID && view !== "lobby") {
+    subscribeToTeam(user.teamID);
+
+  }, [user?.teamID]);
+
+  // if the user is not on a team, show them the create and join team menu
+  useEffect(() => {
+    if (!user?.teamID) {
+      setView("choice");
+    } else {
       setView("lobby");
     }
+  }, [user?.teamID]);
 
-    if (view === "lobby" && user?.teamID) {
-      unsubscribe = subscribeToTeam(user.teamID);
-    }
+  // --- LIVE LISTENER: Watch for ALL teams online (Real-time List) ---
+  // query to get all teams in the same venue
+  useEffect(() => {
+    if (!venueID) return; // guard
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [view, user?.teamID, subscribeToTeam]);
+    const q = query(
+      collection(db, "teams"),
+      where("venueID", "==", venueID)
+    );
 
-  // Helper for API headers
-  const getHeaders = async () => {
-    const token = await auth.currentUser?.getIdToken();
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-  };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const teamsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
+      setOpenTeams(
+        teamsData.filter((t: any) => {
+          const currentCount = Array.isArray(t.members)
+            ? t.members.length
+            : 0;
+          return currentCount < t.team_settings.number_of_players; // teams that are not full
+        })
+      );
+    });
+
+    return () => unsubscribe();
+  }, [venueID]);
+  
+  
   // --- ACTIONS (Backend API Calls) ---
 
   const handleCreateTeam = async () => {
   if (!user) return;
-
+  if (!venueID) return;
   setIsLoading(true);
 
   try {
-    const newTeam = await createTeamAPI({
+    await createTeamAPI({ // creates a new team
       team_name: newTeamName,
       team_settings: {
         team_color: teamColor,
@@ -115,11 +112,6 @@ useEffect(() => {
       },
       venueID: venueID
     });
-
-    // sync with frontend store
-    setTeam(newTeam);
-
-    updateUser({ teamID: newTeam.id });
 
     setView("lobby");
   } catch (err) {
@@ -131,21 +123,15 @@ useEffect(() => {
 
   const handleJoinTeam = async (teamId: string) => {
     if (!user) return;
+
     setIsLoading(true);
 
     try {
-      const headers = await getHeaders();
-      const response = await fetch(`/api/join-team/${teamId}`, {
-        method: "PUT",
-        headers: headers,
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to join");
-      }
+      await joinTeam(teamId);
+      setView("lobby");
+      // do notification. Team joined! 
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || "Failed to join team");
     } finally {
       setIsLoading(false);
     }
@@ -156,21 +142,19 @@ useEffect(() => {
     setIsLoading(true);
 
     try {
-      const headers = await getHeaders();
-      await fetch(`/api/leave-team/${user.teamID}`, {
-        method: "DELETE",
-        headers: headers,
-      });
+      await leaveTeam(user?.teamID)
 
-      updateUser({ teamID: undefined });
       resetTeam();
       setView("choice");
+
     } catch (err) {
       console.error("Leave Error:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+
   if (view === "choice") {
     return (
       <div className="flex-1 flex flex-col items-center pt-16 px-4 w-full max-w-4xl mx-auto relative text-black">
@@ -204,7 +188,7 @@ useEffect(() => {
             </span>
             {openTeams.length > 0 && (
               <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2 py-1 border-2 border-black animate-bounce">
-                {openTeams.length} LIVE
+                {openTeams.length} OPEN TEAMS
               </div>
             )}
           </div>
@@ -215,67 +199,44 @@ useEffect(() => {
 
   // --- 2. JOIN LIST VIEW (Live Database Data) ---
   if (view === "join_list") {
-    return (
-      <div className="flex-1 flex flex-col items-center pt-12 px-4 w-full max-w-2xl mx-auto relative text-black">
-        <button
-          onClick={() => setView("choice")}
-          className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-black uppercase italic mb-8 mt-4 tracking-tighter text-gray-800">
-          Available Teams
-        </h2>
+  return (
+    <div className="flex-1 flex flex-col items-center pt-12 px-4 w-full max-w-2xl mx-auto relative text-black">
 
-        <div className="w-full space-y-4">
-          {openTeams.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed border-black/20 rounded-xl">
-              <p className="italic opacity-50">
-                No teams active. Start your own!
-              </p>
-            </div>
-          ) : (
-            openTeams.map((team) => (
-              <div
-                key={team.id}
-                className="bg-white border-2 border-black p-4 flex justify-between items-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              >
-                <div>
-                  <p className="font-black text-lg uppercase tracking-tight">
-                    {team.name}
-                  </p>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    {team.memberIds?.length || 0} / {MAX_PLAYERS} PLAYERS
-                  </p>
-                  <div className="flex mt-2 -space-x-2">
-                    {/* Accessing rich member objects provided by backend via any cast */}
-                    {(team.members as any[])
-                      ?.slice(0, 3)
-                      .map((m: any, idx: number) => (
-                        <img
-                          key={idx}
-                          src={m.avatarUrl}
-                          className="w-6 h-6 rounded-full border border-black bg-white"
-                          alt="avatar"
-                        />
-                      ))}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleJoinTeam(team.id)}
-                  disabled={isLoading}
-                  className="bg-[#f7e49a] border-2 border-black px-6 py-2 font-black uppercase text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50"
-                >
-                  Join
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+      <button
+        onClick={() => setView("choice")}
+        className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline"
+      >
+        ← Back
+      </button>
+
+      <h2 className="text-2xl font-black uppercase italic mb-8 mt-4 tracking-tighter text-gray-800">
+        Available Teams
+      </h2>
+
+      <div className="w-full max-w-7xl mx-auto space-y-4">
+        {openTeams.length === 0 ? (
+          <div className="text-center py-12 border-2 border-dashed border-black/20 rounded-xl">
+            <p className="italic opacity-50">
+              No teams active. Start your own!
+            </p>
+          </div>
+        ) : (
+          // component for the team card
+          openTeams.map((team) => (
+            <TeamCard
+              key={team.teamID}
+              team={team}
+              maxPlayers={team.team_settings.number_of_players}
+              onJoin={() => handleJoinTeam(team.teamID)}
+              isLoading={isLoading}
+            />
+          ))
+        )}
       </div>
-    );
-  }
 
+    </div>
+  );
+}
   // --- 3. CREATE SETTINGS VIEW ---
   if (view === "create_settings") {
     return (
@@ -364,10 +325,10 @@ useEffect(() => {
       <div className="flex justify-between items-start mb-12 mt-4">
         <div>
           <h2 className="text-3xl font-black uppercase italic tracking-tighter">
-            {currentTeam?.name || "Lobby"}
+            {currentTeam?.team_name || "Lobby"}
           </h2>
           <p className="text-xs font-bold text-blue-900 uppercase">
-            ID: {user?.teamID}
+            ID: {currentTeam?.teamID}
           </p>
         </div>
         <span className="bg-white border-2 border-black px-3 py-1 text-[10px] font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] animate-pulse">
@@ -400,9 +361,9 @@ useEffect(() => {
           </div>
         ))}
 
-        {/* Dynamic Empty Slots based on memberIds length */}
+        {/* Dynamic Empty Slots based on member length */}
         {Array.from({
-          length: MAX_PLAYERS - (currentTeam?.memberIds?.length || 0),
+          length: MAX_PLAYERS - (currentTeam?.members?.length || 0),
         }).map((_, i) => (
           <div key={`empty-${i}`} className="flex flex-col items-center">
             <div className="w-24 h-24 rounded-full border-4 border-dashed border-black bg-gray-100/30 mb-2 flex items-center justify-center">

@@ -324,17 +324,16 @@ if (isAlreadyMember) {
   }
 });
 
-router.delete('/leave-team/:teamID', async (req, res) => { // work on transfering ownership when leaving
+router.delete("/leave-team/:teamID", async (req, res) => {
   const { teamID } = req.params;
 
   try {
-    // 1️⃣ Get user ID
     const userID = await getUserID(req.headers.authorization);
+
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // 2️⃣ Fetch team
     const teamRef = db.collection("teams").doc(teamID);
     const teamDoc = await teamRef.get();
 
@@ -344,69 +343,100 @@ router.delete('/leave-team/:teamID', async (req, res) => { // work on transferin
 
     const teamData = teamDoc.data();
 
-    // 3️⃣ Normalize members (handle object vs array)
-    const rawMembers = teamData.members;
-    const existingMembers = Array.isArray(rawMembers)
-      ? rawMembers
-      : rawMembers
-        ? Object.values(rawMembers)
-        : [];
+    const members = Array.isArray(teamData.members)
+      ? teamData.members
+      : Object.values(teamData.members || {});
 
-    console.log("Members before removal:", existingMembers);
-
-    // 4️⃣ Check if user is in team
-    const isMember = existingMembers.some(
-      member => String(member.userID) === String(userID)
+    const isLeader = members.some(
+      (m) => m.userID === userID && m.team_leader
     );
 
-    if (!isMember) {
-      return res.status(400).json({ message: "User is not in this team" });
+    const remainingMembers = members.filter(
+      (m) => m.userID !== userID
+    );
+
+    // 🧠 CASE: leader leaves → transfer leadership
+    if (isLeader && remainingMembers.length > 0) {
+      const newLeaderID = remainingMembers[0].userID;
+
+      await transferTeamLeader(teamID, userID, newLeaderID);
     }
 
-    // 5️⃣ Remove user from members
-    const updatedMembers = existingMembers.filter(
-      member => String(member.userID) !== String(userID)
-    );
+    // 🧹 CASE: last member leaves → delete team
+    if (remainingMembers.length === 0) {
+      await teamRef.delete();
 
-    console.log("Members after removal:", updatedMembers);
+      await updateUser(userID, {
+        teamID: null,
+        team_name: null,
+        team_leader: false,
+      });
 
-    // 6️⃣ Update team
-    // await updateTeam(teamID, { members: updatedMembers }, ["members"]);
-    await teamRef.update({ // temp fix because update team doesn't replace members array
-  members: updatedMembers
-});
+      return res.status(200).json({
+        message: "Team deleted because last member left",
+      });
+    }
 
-    // 7️⃣ Clear user's team info
-    const updateData = {
-      teamID: null,
-      team_name: null,
-      team_leader: false
-    };
-
-    await updateUser(userID, updateData);
-
-    // 8️⃣ Return updated team
-    const updatedTeamDoc = await teamRef.get();
-
-    res.status(200).json({
-      message: "User removed from team",
-      team: updatedTeamDoc.data()
+    // ✂️ Normal removal
+    await teamRef.update({
+      members: remainingMembers,
     });
 
 
     // Recalculate overall team skill score
     await recalculateTeamSkill(teamID);
 
+    await updateUser(userID, {
+      teamID: null,
+      team_name: null,
+      team_leader: false,
+    });
+
+    const updatedTeam = (await teamRef.get()).data();
+
+    return res.status(200).json({
+      message: "User left team",
+      team: updatedTeam,
+    });
   } catch (err) {
-    console.error("Error in /leave-team:", err);
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       message: "Internal Server Error",
-      error: err.message
+      error: err.message,
     });
   }
 });
 
-router.delete('/team/kick/:userID', async (req, res) => {
+const transferTeamLeader = async (teamID, currentLeaderID, newLeaderID) => {
+  const teamRef = db.collection("teams").doc(teamID);
+  const teamDoc = await teamRef.get();
+
+  const members = teamDoc.data().members;
+
+  const updatedMembers = members.map(m => {
+    if (m.userID === newLeaderID) return { ...m, team_leader: true };
+    if (m.userID === currentLeaderID) return { ...m, team_leader: false };
+    return m;
+  });
+
+  const updatedTeam = {
+    members: updatedMembers,
+    owner_id: newLeaderID
+  };
+
+  await teamRef.update(updatedTeam);
+
+  await Promise.all([
+    updateUser(newLeaderID, { team_leader: true }),
+    updateUser(currentLeaderID, { team_leader: false })
+  ]);
+
+  return updatedTeam;
+};
+
+
+router.delete('/kick/:userID', async (req, res) => {
   const { userID: targetUserID } = req.params;
 
   try {
@@ -531,7 +561,7 @@ router.delete('/team/delete', async (req, res) => {
   }
 });
 
-router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
+router.put('/promote/:newLeaderID', async (req, res) => { // promote user
 
   const { newLeaderID } = req.params;
 
@@ -588,7 +618,8 @@ router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
       return m;
     });
 
-    await teamRef.update({ members: updatedMembers });
+    // have to update ownerID
+    await teamRef.update({ members: updatedMembers, owner_id: newLeaderID});
 
     // 9️⃣ Update user documents
     await updateUser(newLeaderID, { team_leader: true });

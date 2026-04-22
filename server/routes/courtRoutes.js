@@ -352,7 +352,7 @@ router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is trig
       });
     }
 
-    if(queue_type == "Priority Queue"){
+    if(queue_type == "PRIORITY QUEUE"){
         // idk what to do for this one.
         console.log("This is a Priority Queue and it is being incremented.")
         if (!team_queue || team_queue.length < 2) {
