@@ -37,12 +37,18 @@ function Profile(): JSX.Element {
   const [winrate, setWinrate] = useState(0);
   const [games_played, setGames_played] = useState(0);
 
-useEffect(() => { // calculating the stats
-  if (currentUser && currentUser.stats.games_played > 0) {
-    setWinrate((currentUser.stats.wins / currentUser.stats.games_played) * 100);
-    setGames_played(currentUser.stats.games_played)
-  }
-}, [currentUser]);
+  useEffect(() => {
+    // Safety check for stats to prevent crashes when stats are undefined
+    if (currentUser?.stats && currentUser.stats.games_played > 0) {
+      const calculatedWinrate = (currentUser.stats.wins / currentUser.stats.games_played) * 100;
+      setWinrate(Number(calculatedWinrate.toFixed(1)));
+      setGames_played(currentUser.stats.games_played);
+    } else if (currentUser?.stats) {
+      // If stats exist but games_played is 0
+      setGames_played(0);
+      setWinrate(0);
+    }
+  }, [currentUser]);
 
   const initialEmail = currentUser?.email || "christine@email.com";
 
