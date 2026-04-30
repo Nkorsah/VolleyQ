@@ -8,7 +8,7 @@ import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
 import { useEffect } from "react";
 import { useUserSync } from "../store/user";
-import { kickMember, leaveTeam, promoteToLeader } from "../api/api";
+import { deleteTeam, kickMember, leaveTeam, promoteToLeader } from "../api/api";
 
 type SubView = "menu" | "teams" | "waitlist" | "host";
 
@@ -66,10 +66,25 @@ useEffect(() => {
   console.log("teammembers:", teamMembers)
 }, [currentTeam]);
 
-  const handleExitTeam = () => {
-    resetTeam();
-    updateUser({ teamID: undefined });
-    setShowTeamModal(false);
+  const handleExitTeam = async () => {
+   
+    try {
+      
+      // api call can already determine the user is the host of the current team
+      await deleteTeam(); 
+
+      // ✅ Only runs if API call succeeds
+      resetTeam();
+      updateUser({ teamID: undefined });
+      setShowTeamModal(false);
+
+    } catch (err) {
+      // ❌ API failed → nothing below runs
+      console.error("Failed to delete team:", err);
+
+      // optional: show UI feedback
+      // setError("Failed to leave team. Try again.");
+    }
   };
 
   const handleTransferLeader = async (newleaderId: string) => {

@@ -180,13 +180,13 @@ Match = {
   matchID: string; 
   queueID: string;
   
-  teamA = {
+  team1 = {
     teamID: string;
     team_name: string;
     team_score: string;
     team_color: string;
   }
-  teamB = { // these are the stats and info for the teams. 
+  team2 = { // these are the stats and info for the teams. 
     teamID: string;
     team_name: string;
     team_score: string;
@@ -292,4 +292,131 @@ export const updateUser = async (userID, updateData) => {
   };
 };
 
+
+
+
+
+
+
+team_stats = {
+  wins: 0,
+  losses: 0,
+  win_rate: 0,
+  highest_win_streak: 0, 
+  current_streak: 0
+}
+    
+match_status = {
+  status: "idle" | "queued" | "playing",
+  current_matchID: string | null
+}
+
+team = {
+  teamID: uuidv4(), // unique id for the team
+  venueID: venueID, // change this later
+  team_name: team_name,
+  owner_id: userID,
+  members: team_members,
+  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  team_settings,
+  team_stats,
+  match_status: {
+  currently_playing: boolean,
+  current_matchID: string | null
+}
+  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+};
+
+if the team is 
+
+
+marker = {
+  id: markerRef.id,
+  venueID,
+  lat,
+  lng,
+  label, // venue name
+  createdBy: uid,
+  createdAt: new Date().toISOString(),
+};
+
+venue = {
+  venueID,
+  venue_name,
+  venue_description: venue_description || '', // optional description
+  venue_creator: userID, // track who created the venue
+  address: null,          // will be set when a marker is created
+  markerID: null,         // marker will be created later
+  marker: null,           // marker object placeholder
+  number_of_teams,
+  number_of_courts,
+  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  updatedAt: null,
+};
+
+   
+court = {
+  courtID,
+  venueID,
+  court_hostID: userID,
+  matchID,
+  queueID,
+  queue_length: 0,
+
+  court_settings: {
+    court_name,
+    max_teams_in_queue,
+    queue_type,
+    score_limit,
+  },
+
+  match_summary: {
+    team1_name: null,
+    team2_name: null,
+    ongoing: false,
+  },
+
+  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  updatedAt: null,
+};
+
+team1 = {
+    teamID: team1.teamID,
+    team_name: team1.team_name,
+    team_score: 0,
+    team_color: team1.team_settings.team_color,
+  };
+
+team2
+    ? {
+        teamID: team2.teamID,
+        team_name: team2.team_name,
+        team_score: 0,
+        team_color: team2.team_settings.team_color,
+      }
+
+Match = {
+  matchID,
+  courtID,
+  queueID,
+
+  team1: null,
+  team2: null,
+
+  ongoing: false,
+
+  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+
+};
+
+const queue = {
+  queueID,
+  courtID,
+  matchID,
+  queue_type,
+  team_queue: [],  // gets by ID.
+
+  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+};
 

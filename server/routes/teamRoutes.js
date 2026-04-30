@@ -110,7 +110,6 @@ router.post('/create-team', async (req, res) => { // A player makes this request
       team_leader: true
     }
     console.log(`new team member: ${JSON.stringify(teamMember)}`)
-
     
     const team_members = [teamMember] // denormalized users go in here
 
@@ -121,7 +120,12 @@ router.post('/create-team', async (req, res) => { // A player makes this request
       highest_win_streak: 0, 
       current_streak: 0
     }
-    
+
+    const match_status = {
+      status: 'idle',
+      current_matchID: null
+    }
+        
     const team = {
       teamID: uuidv4(), // unique id for the team
       venueID: venueID, // change this later
@@ -131,6 +135,8 @@ router.post('/create-team', async (req, res) => { // A player makes this request
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       team_settings,
       team_stats,
+      match_status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
     await db.collection('teams').doc(team.teamID).set(team); // creating the team document. 
@@ -169,6 +175,8 @@ router.get('/teams', async (req, res) => {
 
     const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
     res.status(200).json(teams);
+
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -324,6 +332,7 @@ if (isAlreadyMember) {
   }
 });
 
+// use zod for type verification
 router.delete("/leave-team/:teamID", async (req, res) => {
   const { teamID } = req.params;
 
@@ -342,6 +351,20 @@ router.delete("/leave-team/:teamID", async (req, res) => {
     }
 
     const teamData = teamDoc.data();
+
+    // block leaving match if team is in a match
+    const team_matchID = teamData.match_status.current_matchID
+    if (team_matchID) {
+      return res.status(409).json({
+        message: "Team is currently in a match. Leave the court first.",
+      });
+    }
+
+    //   members = [
+    //   { userID: "1", team_leader: false },
+    //   { userID: "2", team_leader: true },
+    // ];
+
 
     const members = Array.isArray(teamData.members)
       ? teamData.members
@@ -363,9 +386,10 @@ router.delete("/leave-team/:teamID", async (req, res) => {
     }
 
     // 🧹 CASE: last member leaves → delete team
+    // also if team is currently playing a match. Do not delete! 
     if (remainingMembers.length === 0) {
-      await teamRef.delete();
-
+    
+      await teamRef.delete(); // I should probably make a delete function for each entity
       await updateUser(userID, {
         teamID: null,
         team_name: null,
@@ -381,7 +405,6 @@ router.delete("/leave-team/:teamID", async (req, res) => {
     await teamRef.update({
       members: remainingMembers,
     });
-
 
     // Recalculate overall team skill score
     await recalculateTeamSkill(teamID);
@@ -506,7 +529,7 @@ router.delete('/kick/:userID', async (req, res) => {
   }
 });
 
-router.delete('/team/delete', async (req, res) => {
+router.delete('/delete', async (req, res) => {
   try {
     // 1️⃣ Get team leader ID (the one requesting deletion)
     const team_leaderID = await getUserID(req.headers.authorization);
@@ -547,6 +570,7 @@ router.delete('/team/delete', async (req, res) => {
     // 5️⃣ Clear all members' team info
     const updateData = { teamID: null, team_name: null, team_leader: false };
 
+    // for each member, delete the team info
     const updatePromises = members.map(m => updateUser(m.userID, updateData));
     await Promise.all(updatePromises);
 

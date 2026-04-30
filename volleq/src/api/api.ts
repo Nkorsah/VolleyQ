@@ -362,28 +362,36 @@ export const kickMember = async (
   }
 };
 
-export const deleteTeam = async (teamId: string): Promise<void> => {
+export const deleteTeam = async (): Promise<void> => {
   try {
-    await api.delete(`/api/delete-team/${teamId}`);
+    await api.delete(`/api/team/delete`);
     console.log('[deleteTeam] success');
   } catch (err) {
     return handleAxiosError(err);
   }
 };
 
-
 function handleAxiosError(err: unknown): never {
   if (axios.isAxiosError(err)) {
     if (err.response) {
-      console.error('Request failed:', err.response.status, err.response.statusText);
+      console.error(
+        "Request failed:",
+        err.response.status,
+        err.response.statusText
+      );
+
+      console.error("Backend message:", err.response.data?.message);
+      console.error("Full response:", err.response.data);
+
     } else if (err.request) {
-      console.error('Network error: no response from server');
+      console.error("Network error: no response from server");
     } else {
-      console.error('Request setup error:', err.message);
+      console.error("Request setup error:", err.message);
     }
   } else {
-    console.error('Unexpected error', err);
+    console.error("Unexpected error", err);
   }
+
   throw err;
 }
 
@@ -490,7 +498,7 @@ export const createCourt = async (
   data: CreateCourtRequest
 ): Promise<CreateCourtResponse> => {
   try {
-    const res = await api.post(`${BASE_URL}/api/venue/court/create`, data);
+    const res = await api.post(`/api/venue/court/create`, data);
     console.log('[createCourt] success:', res.data);
     return res.data;
   } catch (err) {
@@ -508,18 +516,33 @@ export const fetchQueue = async (courtID: string): Promise<HydratedQueueEntry[]>
   }
 };
 
-export const joinQueue = async (courtID: string, token: string): Promise<{
+export const joinQueue = async (
+  courtID: string
+): Promise<{
   message: string;
-  team: string;
+  team: any;
   team_queue: string[];
 }> => {
   try {
-    const res = await axios.put(
-      `${BASE_URL}/api/venue/court/${courtID}/match/queue/join`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    console.log('[joinQueue] success:', res.data);
+    const res = await api.put(`/api/venue/court/${courtID}/match/queue/join`);
+    // interceptor handles auth
+    console.log("[joinQueue] success:", res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const deleteCourt = async (
+  courtID: string
+): Promise<{
+  message: string;
+  courtID: string;
+}> => {
+  try {
+    const res = await api.delete(`/api/venue/court/${courtID}`);
+    // interceptor handles auth
+    console.log("[deleteCourt] success:", res.data);
     return res.data;
   } catch (err) {
     return handleAxiosError(err);

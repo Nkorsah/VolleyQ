@@ -1,6 +1,12 @@
 import { useState, JSX } from "react";
 import { useUserSync } from "../store/user";
 import { useUserStore } from "../store/user";
+import { useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useTeamStore } from "../store/team";
+import { db } from "../firebase/firebase-service";
+import { collection, onSnapshot, query, doc, where } from "firebase/firestore";
+import { joinQueue } from "../api/api";
 
 interface Props {
   onBack: () => void;
@@ -15,11 +21,38 @@ export default function WaitlistPage({
   isHost = false, 
   initialWinningScore = 21 
 }: Props): JSX.Element {
-
+  const { venueID } = useParams();
   useUserSync();
+
+  const [joiningCourtId, setJoiningCourtId] = useState<string | null>(null);
+
+
+  const { currentTeam, resetTeam, subscribeToTeam } = useTeamStore();
+  const [openCourts, setOpenCourts] = useState<any[]>([]);
+
+  const [courts, setCourts] = useState<any[]>([]); // array of courts
+  const [queuesMap, setQueuesMap] = useState<Record<string, any>>({});
+
   const [view, setView] = useState<WaitlistView>("court_list");
   const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
   const [myCurrentCourt, setMyCurrentCourt] = useState<string | null>(null);
+
+   const selectedCourtObj = courts.find(
+    (c) => c.courtID === selectedCourt
+  );
+
+  const selectedCourtName = selectedCourtObj?.court_settings.court_name;
+  // on court change. Then log.
+  useEffect(() => {
+    console.log(courts)
+  }, [courts])
+
+  useEffect(() => {
+    console.log("This is the selected court object: ",selectedCourtObj)
+    console.log("This is the selected court name: ",selectedCourtName)
+  }, [selectedCourtObj])
+
+  
 
   // --- SCOREBOARD STATE ---
   const [scoreA, setScoreA] = useState(0);
@@ -27,16 +60,76 @@ export default function WaitlistPage({
   const [winningScore] = useState(initialWinningScore); 
   const [winner, setWinner] = useState<string | null>(null);
 
-  const courts = [
-    { id: 1, name: "COURT 1", status: "Waiting for teams...", count: 0, color: "bg-gradient-to-r from-orange-400 to-orange-500" },
-    { id: 2, name: "COURT 2", status: "Tigers vs Lions", count: 4, color: "bg-gradient-to-r from-orange-400 to-orange-500" },
-    { id: 3, name: "COURT 3", status: "Beans vs Toast", count: 1, color: "bg-gradient-to-r from-orange-400 to-yellow-400" },
-  ];
+  const courtsUI = courts.map((court) => {
+    const match = court.match_summary;
 
-  const handleJoinCourt = (name: string) => {
-    setMyCurrentCourt(name);
-    setSelectedCourt(name);
-    setView("scoreboard");
+    const count = court.queue_length || 0;
+
+    let status = "Waiting for teams...";
+    if (match?.team1_name && match?.team2_name) {
+      status = `${match.team1_name} vs ${match.team2_name}`;
+    } else if (match?.team1_name || match?.team2_name) {
+      const team = match.team1_name || match.team2_name;
+      status = `${team} waiting for one team`;
+    }
+
+    return {
+      id: court.courtID,
+      name: court.court_settings.court_name,
+      count,
+      status,
+      color:
+        match?.team1_name && match?.team2_name
+          ? "bg-gradient-to-r from-orange-400 to-orange-500"
+          : "bg-gradient-to-r from-orange-400 to-yellow-400",
+    };
+  });
+
+  // const courts = [
+  //   { id: 1, name: "COURT 1", status: "Waiting for teams...", count: 0, color: "bg-gradient-to-r from-orange-400 to-orange-500" },
+  //   { id: 2, name: "COURT 2", status: "Tigers vs Lions", count: 4, color: "bg-gradient-to-r from-orange-400 to-orange-500" },
+  //   { id: 3, name: "COURT 3", status: "Beans vs Toast", count: 1, color: "bg-gradient-to-r from-orange-400 to-yellow-400" },
+  // ];
+
+
+//   const courtsUI = courts.map((court) => {
+//   const match = matchesMap[court.matchID];
+//   const queue = queuesMap[court.queueID];
+
+//   const count = queue?.team_queue?.length || 0;
+
+//   let status = "Waiting for teams...";
+//   if (match?.team1 && match?.team2) {
+//     status = `${match.team1.name} vs ${match.team2.name}`;
+//   }
+
+//   return {
+//     id: court.courtID,
+//     name: court.court_settings.court_name,
+//     count,
+//     status,
+//     color:
+//       match?.team1 && match?.team2
+//         ? "bg-gradient-to-r from-orange-400 to-orange-500"
+//         : "bg-gradient-to-r from-orange-400 to-yellow-400",
+//   };
+// });
+
+  const handleJoinCourt = async (courtID: string, name: string) => {
+
+    setJoiningCourtId(courtID);
+
+    try {
+      await joinQueue(courtID);
+
+      setMyCurrentCourt(courtID);
+      setSelectedCourt(courtID);
+      setView("scoreboard");
+    } catch (err) {
+      console.error("problem joining court queue");
+    } finally {
+      setJoiningCourtId(null);
+    }
   };
 
   const handleLeaveCourt = () => {
@@ -45,6 +138,70 @@ export default function WaitlistPage({
 
   const user = useUserStore((state) => state.user);
   user?.teamID
+
+  // getting courts snapshot
+  useEffect(() => {
+    if (!venueID) return;
+
+    const q = query(
+      collection(db, "courts"),
+      where("venueID", "==", venueID)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const courtsData = snapshot.docs.map((doc) => ({
+        courtID: doc.id,
+        ...doc.data(),
+      }));
+
+      setCourts(courtsData);
+    });
+
+    return () => unsubscribe();
+  }, [venueID]);
+
+// useEffect(() => {
+//   if (courts.length === 0) return;
+
+//   const unsubscribes: any[] = [];
+
+//   courts.forEach((court) => {
+//     const ref = doc(db, "matches", court.matchID);
+
+//     const unsub = onSnapshot(ref, (docSnap) => {
+//       setMatchesMap((prev) => ({
+//         ...prev,
+//         [court.matchID]: docSnap.data(),
+//       }));
+//     });
+
+//     unsubscribes.push(unsub);
+//   });
+
+//   return () => unsubscribes.forEach((u) => u());
+// }, [courts]);
+
+// useEffect(() => {
+//   if (courts.length === 0) return;
+
+//   const unsubscribes: any[] = [];
+
+//   courts.forEach((court) => {
+//     const ref = doc(db, "queues", court.queueID);
+
+//     const unsub = onSnapshot(ref, (docSnap) => {
+//       setQueuesMap((prev) => ({
+//         ...prev,
+//         [court.queueID]: docSnap.data(),
+//       }));
+//     });
+
+//     unsubscribes.push(unsub);
+//   });
+
+//   return () => unsubscribes.forEach((u) => u());
+// }, [courts]);
+
   // make a useEffect hook for getting the courts
 
   const updateScore = (team: 'A' | 'B', delta: number) => {
@@ -79,12 +236,12 @@ export default function WaitlistPage({
             {isHost ? "Court Management" : "Available Courts"}
           </h2>
 
-          {courts.map((court) => {
+          {courtsUI.map((court) => {
             const isMyCourt = myCurrentCourt === court.name;
             return (
               <div key={court.id} className="flex flex-col gap-2">
                 <div
-                  onClick={() => { setSelectedCourt(court.name); setView("scoreboard"); }}
+                  onClick={() => { setSelectedCourt(court.id); setView("scoreboard"); }}
                   className={`${court.color} border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-4 flex justify-between items-center transition-all cursor-pointer hover:translate-y-[-2px] relative ${
                     isMyCourt ? "ring-4 ring-yellow-400 ring-offset-2 ring-offset-[#fefce8]" : ""
                   }`}
@@ -110,7 +267,25 @@ export default function WaitlistPage({
                     {isMyCourt ? (
                       <button onClick={(e) => { e.stopPropagation(); handleLeaveCourt(); }} className="flex-1 bg-red-500 text-white border-2 border-black font-black uppercase text-xs py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1">Leave Queue</button>
                     ) : (
-                      !myCurrentCourt && <button onClick={(e) => { e.stopPropagation(); handleJoinCourt(court.name); }} className="flex-1 bg-green-500 text-white border-2 border-black font-black uppercase text-xs py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1">Join Queue</button>
+
+                      
+                      !myCurrentCourt &&(
+                        <button
+                          disabled={joiningCourtId === court.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleJoinCourt(court.id, court.name);
+                          }}
+                          className={`flex-1 border-2 border-black font-black uppercase text-xs py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 transition-all
+                            ${joiningCourtId === court.id
+                              ? "bg-gray-400 text-white"
+                              : "bg-green-500 text-white"
+                            }`}
+                        >
+                          {joiningCourtId === court.id ? "Joining..." : "Join Queue"}
+                        </button>
+                      )
+                    
                     )}
                   </div>
                 )}
@@ -137,13 +312,58 @@ export default function WaitlistPage({
 
   // --- 2. SCOREBOARD VIEW ---
   if (view === "scoreboard") {
+    if (selectedCourtObj?.match_summary?.team2_name == null){
+      return (
+    <div className="w-full min-h-screen flex flex-col items-center justify-center text-center px-4 relative">
+
+    {/* 🔵 Back button */}
+    <button
+      onClick={() => setView("court_list")}
+      className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline"
+    >
+      ← Back to Courts
+    </button>
+
+    {/* 🔵 Circle ABOVE text */}
+    <div className="opacity-70 mb-10">
+      <div className="circle-dots w-40 h-40">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className={`dot dot-${i}`} />
+        ))}
+      </div>
+    </div>
+
+    {/* 🟡 Centered text */}
+    <h1 className="text-7xl font-extrabold mb-6 italic tracking-tighter uppercase">
+      Waiting for Teams
+    </h1>
+
+    <p className="text-xl font-bold text-gray-800 max-w-md mb-10 leading-snug">
+      There needs to be at least two teams before starting a match
+    </p>
+
+    {/* 🟡 Button. It should dissapear after clicking */}
+    {isHost && (
+      <button
+        onClick={() => {handleJoinCourt(selectedCourtObj?.courtID, selectedCourtName);}}
+        className="px-16 py-3 bg-[#f7e49a] border-2 border-black font-black text-xl rounded-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all uppercase"
+      >
+        Join Queue
+      </button>
+    )}
+
+  </div>
+    );
+     
+    }
+
     return (
       <div className="min-h-screen w-full bg-[#fefce8] flex flex-col items-center justify-center px-4 relative text-black text-center">
         <button onClick={() => setView("court_list")} className="absolute top-4 left-4 text-sm font-bold text-gray-600 hover:underline">
           ← Back to Courts
         </button>
 
-        <h2 className="text-3xl font-black italic uppercase mt-8 mb-4 tracking-tighter">{selectedCourt}</h2>
+        <h2 className="text-3xl font-black italic uppercase mt-8 mb-4 tracking-tighter">{selectedCourtName}</h2>
 
         <div className="flex items-center gap-2 mb-6 bg-white border-2 border-black px-4 py-2 rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <span className="text-xs font-black uppercase text-gray-400">Match Goal:</span>
@@ -200,7 +420,7 @@ export default function WaitlistPage({
         </button>
       </div>
     );
-  }
+  } 
 
   // --- 3. QUEUE DETAIL VIEW ---
   return (
@@ -209,7 +429,7 @@ export default function WaitlistPage({
         ← Back to Scoreboard
       </button>
 
-      <h2 className="text-4xl font-black italic uppercase mb-8 mt-4 tracking-tighter">{selectedCourt}</h2>
+      <h2 className="text-4xl font-black italic uppercase mb-8 mt-4 tracking-tighter">{selectedCourtName}</h2>
 
       <div className="w-full max-w-xl flex flex-col gap-4 text-center items-center">
         <h3 className="text-xl font-black italic uppercase text-gray-400 text-left mb-[-8px] w-full">Currently Playing</h3>

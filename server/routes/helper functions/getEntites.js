@@ -13,7 +13,8 @@ export const getUser = async (userID) => {
   };
 };
 
-export const getTeam = async (teamID) => {
+
+export const getTeam = async (teamID) => { // returns the team entity
   const teamRef = await db.collection("teams").doc(teamID).get();
 
   if (!teamRef.exists) {

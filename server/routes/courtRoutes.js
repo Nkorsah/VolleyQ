@@ -2,7 +2,7 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import admin from 'firebase-admin';
 import { db } from '../firebase.js'; 
-import { getUserID } from './teamRoutes.js';
+import { getUserID, updateTeam } from './teamRoutes.js';
 import { updateUser, updateMatch, updateMatchScore} from './helper functions/updateEntities.js';
 import { getTeam, getUser,  } from './helper functions/getEntites.js';
 
@@ -34,7 +34,7 @@ router.post('/create', async (req, res) => {  // court only passes down the sett
     const queueID = uuidv4();
 
     // =====================
-    // 🏀 COURT
+    //  COURT
     // =====================
     const court = {
       courtID,
@@ -49,6 +49,12 @@ router.post('/create', async (req, res) => {  // court only passes down the sett
         max_teams_in_queue,
         queue_type,
         score_limit,
+      },
+
+      match_summary: {
+        team1_name: null,
+        team2_name: null,
+        ongoing: false,
       },
 
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -140,12 +146,15 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
   const { courtID } = req.params;
 
   try {
+    // get userID
     const userID = await getUserID(req.headers.authorization);
     console.log(`Court host userID: ${userID}`);
+
     // get the user attribute that verifies that they're a team lead
     const user = await getUser(userID);
     console.log(JSON.stringify(user))
 
+    // check if user is team leader or not
     if (!user.teamID) {
       return res.status(400).json({ message: 'User is not on a team' });
     }
@@ -154,6 +163,7 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
       return res.status(403).json({ message: 'User is not a team leader' });
     }
 
+    // grab teamID and verify if team exists
     const teamID = user.teamID; // team id from user
 
     console.log(JSON.stringify(user, null, 2));
@@ -174,15 +184,21 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
       return res.status(409).json({ message: 'Queue is full' });
     }
 
+    // get match and queue
     const match = await getMatch(courtID);
     const queueID = match.queueID;
-    // console.log("qeueID: ",queueID)
 
+    // add to queue and retreive the queue
     await addTeamToQueue(courtID, queueID, teamID); // updates queue
-    // update court function? 
     const team_queue = await getQueue(courtID);
 
-    // write to the queue. Might make a helper function on this
+    // once added to queue, set the current matchID for the team
+    await teamRef.update({
+      "match_status.status": "queued",
+      "match_status.current_matchID": matchID
+    });
+
+   // if a match has not happened yet, update the court with teams in queue
     if (!match.ongoing) {
       await updateCurrentTeamsInMatch(courtID, match); // put in match object
     }
@@ -226,15 +242,14 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
 //   return team_queue;
 // }
 
-const updateCurrentTeamsInMatch = async (courtID, match) => {
+const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the current teams in the courts and match entites and it reflects the teams in the queue
   // 🚫 Don't update if game is in progress
   if (match.ongoing === true) {
     console.log("Game in progress. Skipping team update.");
     return;
   }
 
-  const team_queue = await getQueue(courtID);
-
+  const team_queue = await getQueue(courtID); // getting queue
   const updateData = {};
 
   // ❌ No teams → reset match
@@ -248,8 +263,7 @@ const updateCurrentTeamsInMatch = async (courtID, match) => {
     return;
   }
 
-  // ⚡ Fetch teams in parallel
-  // fetch both teams and if the second team is does not exist, set team 2 to null
+  // fetch both teams from queue and if the second team is does not exist, set team 2 to null
   const [team1, team2] = await Promise.all([
     getTeam(team_queue[0]),
     team_queue[1] ? getTeam(team_queue[1]) : null, // if statement in one line
@@ -287,7 +301,8 @@ router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is trig
   const {courtID}= req.params
   
   try {
-
+    
+    // get necessaryIDs
     const {queueID, matchID, ongoing} = await getMatch(courtID)
      if (ongoing === true) {
       return res.status(409).json({ message: 'Match is still ongoing. Cannot advance queue' });
@@ -428,59 +443,118 @@ router.put('/:courtID/match/queue/leave', async (req, res) => {
     const userID = await getUserID(req.headers.authorization);
     const user = await getUser(userID);
 
-    if (!user.teamID) return res.status(400).json({ message: 'User is not on a team' });
-    if (!user.team_leader) return res.status(403).json({ message: 'Only the team leader can leave the queue' });
+    if (!user.teamID) {
+      return res.status(400).json({ message: 'User is not on a team' });
+    }
+
+    if (!user.team_leader) {
+      return res.status(403).json({ message: 'Only the team leader can leave the queue' });
+    }
 
     const teamID = user.teamID;
+
+    // 🔥 Get queue + match
     const queueDoc = await getQueueDoc(courtID);
     const { queueID, team_queue, queue_type } = queueDoc;
+
     const match = await getMatch(courtID);
 
-    if (queue_type === 'Priority Queue') {
-      const entry = team_queue.find(e => e.teamID === teamID);
-      if (!entry) return res.status(404).json({ message: 'Team is not in the queue' });
+    let updated_queue;
+    let position;
 
-      const position = team_queue.findIndex(e => e.teamID === teamID);
-      if (match.ongoing && position < 2) {
-        return res.status(409).json({ message: 'Cannot leave queue while match is ongoing' });
+    // =========================
+    // 🔵 PRIORITY QUEUE LOGIC
+    // =========================
+    if (queue_type === 'Priority Queue') {
+
+      // Find team entry
+      const entry = team_queue.find(e => e.teamID === teamID);
+      if (!entry) {
+        return res.status(404).json({ message: 'Team is not in the queue' });
       }
 
-      const updated_queue = team_queue.filter(e => e.teamID !== teamID);
+      // Find position
+      position = team_queue.findIndex(e => e.teamID === teamID);
 
-      await db.collection('queues').doc(queueID).update({ team_queue: updated_queue });
-      await db.collection('courts').doc(courtID).update({ queue_length: updated_queue.length });
+      // 🚫 Prevent leaving if currently playing
+      if (match.ongoing && position < 2) {
+        return res.status(409).json({
+          message: 'Cannot leave queue while match is ongoing'
+        });
+      }
 
-      return res.status(200).json({ message: 'Team left the queue', team_queue: updated_queue });
+      // Remove team
+      updated_queue = team_queue.filter(e => e.teamID !== teamID);
     }
 
-    if (!team_queue.includes(teamID)) {
-      return res.status(404).json({ message: 'Team is not in the queue' });
+    // =========================
+    // 🟢 NORMAL QUEUE LOGIC
+    // =========================
+    else {
+
+      if (!team_queue.includes(teamID)) {
+        return res.status(404).json({ message: 'Team is not in the queue' });
+      }
+
+      position = team_queue.indexOf(teamID);
+
+      // 🚫 Prevent leaving if currently playing
+      if (match.ongoing && position < 2) {
+        return res.status(409).json({
+          message: 'Cannot leave queue while match is ongoing'
+        });
+      }
+
+      // Remove team
+      updated_queue = team_queue.filter(id => id !== teamID);
     }
 
-    const position = team_queue.indexOf(teamID);
-    if (match.ongoing && position < 2) {
-      return res.status(409).json({ message: 'Cannot leave queue while match is ongoing' });
-    }
-
-    const updated_queue = team_queue.filter(id => id !== teamID);
-
+    // =========================
+    // 🔥 UPDATE QUEUE + COURT
+    // =========================
     const batch = db.batch();
-    batch.update(db.collection('queues').doc(queueID), { team_queue: updated_queue });
-    batch.update(db.collection('courts').doc(courtID), { queue_length: updated_queue.length });
+
+    batch.update(db.collection('queues').doc(queueID), {
+      team_queue: updated_queue
+    });
+
+    batch.update(db.collection('courts').doc(courtID), {
+      queue_length: updated_queue.length
+    });
+
     await batch.commit();
 
+    // =========================
+    // 🔥 UPDATE TEAM STATUS
+    // =========================
+    await db.collection("teams").doc(teamID).update({
+      "match_status.status": "idle",
+      "match_status.current_matchID": null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // =========================
+    // 🔥 OPTIONAL MATCH FIX
+    // =========================
     if (position < 2 && !match.ongoing) {
       await updateCurrentTeamsInMatch(courtID, match);
     }
 
-    return res.status(200).json({ message: 'Team left the queue', team_queue: updated_queue });
+    return res.status(200).json({
+      message: 'Team left the queue',
+      team_queue: updated_queue
+    });
+
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: err.message
+    });
   }
 });
 
-router.get('/:courtID/match/queue', async (req, res) => {
+router.get('/:courtID/match/queue', async (req, res) => { // gets the current queue?
   const { courtID } = req.params;
 
   try {
@@ -542,35 +616,91 @@ router.get('/:courtID/match/queue', async (req, res) => {
   }
 });
 
-router.put('/:courtID/match/start', async (req, res) => { // starts the match
-  const {courtID} = req.params
+router.put('/:courtID/match/start', async (req, res) => {
+  const { courtID } = req.params;
+
   try {
-    // const court = getCourt(courtID)
-    const team_queue = await getQueue(courtID)
-    
-    if(team_queue.length < 2){
+    // 1️⃣ Get queue
+    const team_queue = await getQueue(courtID);
+
+    if (team_queue.length < 2) {
       return res.status(409).json({
-  message: "At least 2 teams are required to start the match"
-});
+        message: "At least 2 teams are required to start the match"
+      });
     }
-    // we need two teams to start. So check the length of the queue
-    console.log('getting match obj')
-    const match = await getMatch(courtID)
-    if(match.ongoing == true){
-      return res.status(200).json({message: "match has already started!"})
+
+    // 2️⃣ Get match
+    const match = await getMatch(courtID);
+
+    if (match.ongoing) {
+      return res.status(200).json({
+        message: "Match has already started!"
+      });
     }
-    console.log('getting matchRef')
-    const matchRef = await db.collection("matches").doc(match.matchID);
-    console.log('updating match ')
+
+    // 3️⃣ Pick first 2 teams
+    const team1ID = team_queue[0];
+    const team2ID = team_queue[1];
+
+    // 4️⃣ Fetch both teams (parallel 🔥)
+    const [team1, team2] = await Promise.all([
+      getTeam(team1ID),
+      getTeam(team2ID)
+    ]);
+
+    // 5️⃣ Update match
+    const matchRef = db.collection("matches").doc(match.matchID);
+
     await matchRef.update({
       ongoing: true,
+      team1: {
+        teamID: team1.teamID,
+        team_name: team1.team_name,
+        team_score: 0
+      },
+      team2: {
+        teamID: team2.teamID,
+        team_name: team2.team_name,
+        team_score: 0
+      },
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    return res.status(200).json("Match started!")
+    // 6️⃣ Update BOTH teams → now playing
+    const team1Ref = db.collection("teams").doc(team1ID);
+    const team2Ref = db.collection("teams").doc(team2ID);
+
+    await Promise.all([
+      team1Ref.update({
+        "match_status.status": "playing",
+        "match_status.current_matchID": match.matchID,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }),
+      team2Ref.update({
+        "match_status.status": "playing",
+        "match_status.current_matchID": match.matchID,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      })
+    ]);
+
+    // 7️⃣ Remove both teams from queue
+    await db.collection("queues").doc(match.queueID).update({
+      team_queue: team_queue.slice(2)
+    });
+
+    return res.status(200).json({
+      message: "Match started!",
+      teams: [team1ID, team2ID]
+    });
+
   } catch (err) {
-    return res.status(500).json({ message: 'Internal Server Error. Could not start match', error: err });
+    console.error(err);
+    return res.status(500).json({
+      message: "Internal Server Error. Could not start match",
+      error: err.message
+    });
   }
-})
+});
 
 // score function for scoreboard. increments by one
 // router.put('/:courtID/match/update-score', async (req, res) => {
@@ -923,6 +1053,64 @@ function findBestMatchup(sorted_entries) {
 }
 export default router;
 
+router.delete('/:courtID', async (req, res) => {
+  const { courtID } = req.params;
+
+  try {
+    const courtRef = db.collection('courts').doc(courtID);
+    const courtSnap = await courtRef.get();
+
+    if (!courtSnap.exists) {
+      return res.status(404).json({ message: 'Court not found' });
+    }
+
+    const court = courtSnap.data();
+    const { matchID, queueID, court_hostID } = court;
+
+    // 🚨 optional safety check: prevent deleting active match
+    const matchSnap = await db.collection('matches').doc(matchID).get();
+    if (matchSnap.exists && matchSnap.data().ongoing) {
+      return res.status(409).json({
+        message: 'Cannot delete court while match is ongoing',
+      });
+    }
+
+    const batch = db.batch();
+
+    // 1️⃣ delete court
+    batch.delete(courtRef);
+
+    // 2️⃣ delete match
+    if (matchID) {
+      batch.delete(db.collection('matches').doc(matchID));
+    }
+
+    // 3️⃣ delete queue
+    if (queueID) {
+      batch.delete(db.collection('queues').doc(queueID));
+    }
+
+    await batch.commit();
+
+    // 4️⃣ remove court from user (important cleanup)
+    await db.collection('users').doc(court_hostID).update({
+      hosted_courtID: admin.firestore.FieldValue.delete(),
+    });
+
+    console.log(`Court ${courtID} deleted successfully`);
+
+    return res.status(200).json({
+      message: 'Court deleted successfully',
+      courtID,
+    });
+  } catch (err) {
+    console.error('deleteCourt error:', err);
+
+    return res.status(500).json({
+      message: 'Internal Server Error. Could not delete court',
+    });
+  }
+});
 // const getMatch = async (matchID) => {
 
 // }

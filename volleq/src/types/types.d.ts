@@ -21,6 +21,7 @@ export type User = {
   avatarUrl: string;
   teamID?: string;
   host?: boolean; // role changes the frontend pages
+  hosted_courtID?: string;
   team_leader?: boolean; // role changes the frontend pages
   team_name?:string;
   locationID?: string;
