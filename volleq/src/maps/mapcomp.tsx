@@ -145,11 +145,28 @@ export function MapComponent({ userId, onGooglePlacesLoaded, onVenueActivated }:
               position={{ lat: marker.lat, lng: marker.lng }} 
               onClick={() => setSelected({ ...marker, isCustom: true })}
             >
-              <Pin background={'#ef4444'} borderColor={'#b91c1c'} glyphColor={'white'} />
+              <div style={{
+                background: '#ef4444',
+                border: '2px solid #b91c1c',
+                borderRadius: '50% 50% 50% 0',
+                transform: 'rotate(-45deg)',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <span style={{
+                transform: 'rotate(45deg)',
+                fontSize: '18px',
+                lineHeight: 1,
+                }}>
+                  🏐
+                </span>
+              </div>
             </AdvancedMarker>
           ))}
 
-          {/* SUGGESTED (YELLOW) - FIX 3: Added check for geometry existence */}
           {googleMarkers?.map(place => place?.geometry?.location && (
             <AdvancedMarker 
               key={place.place_id} 

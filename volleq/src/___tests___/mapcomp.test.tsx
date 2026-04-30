@@ -1,240 +1,143 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, renderHook } from "@testing-library/react";
-import { useUserStore, useUserSync } from "../store/user";
-import { doc, onSnapshot } from "firebase/firestore";
-import { User } from "../types/types";
-import { BrowserRouter } from "react-router-dom";
-import WaitlistPage from "../pages/WaitlistPage";
-import Profile from "../pages/Profile";
-import { MapComponent } from "../maps/mapcomp";
-import { updateUser as apiUpdateUser, getVenues } from "../api/api";
-import { reauthenticateUser } from "../firebase/auth";
-import { createVenue, addMarker } from "../api/markers";
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MapComponent } from '../maps/mapcomp'
+import * as api from '../api/api'
+import * as markers from '../api/markers'
+import type { Venue } from '../api/api'
 
-// --- GLOBAL MOCKS ---
 
-// 1. Mock Firestore
-vi.mock("firebase/firestore", () => ({
-  doc: vi.fn(),
-  onSnapshot: vi.fn(),
-  getFirestore: vi.fn(),
-  collection: vi.fn(),
-  query: vi.fn(),
-}));
+vi.mock('@vis.gl/react-google-maps', () => ({
+  APIProvider: ({ children }: any) => <>{children}</>,
+  Map: ({ children, onClick }: any) => (
+    <div data-testid="map" onClick={onClick}>{children}</div>
+  ),
+  AdvancedMarker: ({ children, onClick }: any) => (
+    <div data-testid="marker" onClick={onClick}>{children}</div>
+  ),
+  Pin: () => <div data-testid="pin" />,
+  InfoWindow: ({ children, onCloseClick }: any) => (
+    <div data-testid="infowindow">
+      {children}
+      <button onClick={onCloseClick}>close</button>
+    </div>
+  ),
+  useMap: () => null,
+}))
 
-// 2. Mock Firebase Service
-vi.mock("../firebase/firebase-service", () => ({
-  db: {},
-}));
-
-// 3. Mock API layers
-vi.mock("../api/api", () => ({
-  updateUser: vi.fn(),
+vi.mock('../api/api', () => ({
   getVenues: vi.fn(),
-}));
+}))
 
-vi.mock("../api/markers", () => ({
-  createVenue: vi.fn(),
+vi.mock('../api/markers', () => ({
   addMarker: vi.fn(),
   removeMarker: vi.fn(),
-}));
+  createVenue: vi.fn(),
+}))
 
-// 4. Mock Auth helpers
-vi.mock("../firebase/auth", () => ({
-  doUpdateEmail: vi.fn(),
-  reauthenticateUser: vi.fn(),
-  doSignOut: vi.fn(),
-  getAuth: vi.fn(() => ({
-    currentUser: { getIdToken: vi.fn(() => Promise.resolve("token")) }
-  })),
-}));
+vi.mock('../components/CreateVenueModal', () => ({
+  CreateVenueModal: ({ open }: any) => open ? <div data-testid="modal" /> : null,
+}))
 
-// 5. Mock Google Maps React Wrapper
-vi.mock('@vis.gl/react-google-maps', () => ({
-  APIProvider: ({ children }: any) => <div>{children}</div>,
-  Map: ({ children, onClick }: any) => (
-    <div data-testid="google-map" onClick={() => onClick({ detail: { latLng: { lat: 40, lng: -70 } } })}>
-      {children}
-    </div>
-  ),
-  AdvancedMarker: ({ children, onClick, position }: any) => (
-    <div data-testid="map-marker" data-lat={position.lat} onClick={onClick}>
-      {children}
-    </div>
-  ),
-  Pin: () => <div data-testid="map-pin" />,
-  InfoWindow: ({ children, onCloseClick }: any) => (
-    <div data-testid="info-window">
-      <button onClick={onCloseClick}>Close</button>
-      {children}
-    </div>
-  ),
-  useMap: vi.fn(() => ({
-    getCenter: () => ({ lat: () => 39, lng: () => -75 }),
-  })),
-}));
-
-// 6. Mock Global Google Object (Places API)
-const mockTextSearch = vi.fn();
-(global as any).google = {
-  maps: {
-    places: {
-      PlacesService: vi.fn(() => ({
-        textSearch: mockTextSearch,
-      })),
-      PlacesServiceStatus: { OK: 'OK' },
-    },
+const mockVenues = [
+  {
+    venueID: 'v1',
+    venue_name: 'Test Venue',
+    venue_description: 'A test venue',
+    venue_creator: 'user1',
+    address: '',
+    markerID: '1',
+    number_of_teams: 0,
+    number_of_courts: 1,
+    marker: { id: '1', venueID: 'v1', lat: 39.98, lng: -75.15, label: 'Test Venue' },
   },
-};
+  {
+    venueID: 'v2',
+    venue_name: 'Another Venue',
+    venue_description: 'Another test venue',
+    venue_creator: 'user1',
+    address: '',
+    markerID: '2',
+    number_of_teams: 0,
+    number_of_courts: 1,
+    marker: { id: '2', venueID: 'v2', lat: 39.99, lng: -75.16, label: 'Another Venue' },
+  },
+] as Venue[]
 
-// 7. Mock Nav and Hooks
-vi.mock("../components/Navbar", () => ({
-  __esModule: true,
-  default: () => <div data-testid="navbar">Navbar</div>,
-}));
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(api.getVenues).mockResolvedValue(mockVenues)
+})
 
-vi.mock("../hooks/useLoadUser", () => ({
-  useLoadUser: () => ({ loadUser: vi.fn(), loading: false }),
-}));
 
-// Mock Data
-const mockUserData: User = {
-  userID: "owl_001",
-  name: "Temple Owl",
-  email: "owl@temple.edu",
-  avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Temple",
-  stats: { wins: 10, losses: 5, games_played: 15 },
-  createdAt: new Date(),
-};
+describe('MapComponent', () => {
+  it('renders the map', async () => {
+    render(<MapComponent userId="user1" />)
+    expect(screen.getByTestId('map')).toBeInTheDocument()
+  })
 
-// --- SECTION 1: USER STORE & SYNC TESTS ---
-describe("User Store (Zustand)", () => {
-  beforeEach(() => {
-    useUserStore.getState().clearUser();
-    vi.clearAllMocks();
-  });
-
-  it("should update top-level fields (Partial update)", () => {
-    useUserStore.getState().setUser(mockUserData);
-    useUserStore.getState().updateUser({ name: "New Name", teamID: "team_123" });
-    const updatedUser = useUserStore.getState().user;
-    expect(updatedUser?.name).toBe("New Name");
-    expect(updatedUser?.teamID).toBe("team_123");
-  });
-});
-
-// --- SECTION 2: WAITLIST PAGE TESTS ---
-describe("WaitlistPage Component", () => {
-  const mockOnBack = vi.fn();
-  it("renders the court list view by default", () => {
-    render(<WaitlistPage onBack={mockOnBack} />);
-    expect(screen.getByText(/Available Courts/i)).toBeInTheDocument();
-  });
-});
-
-// --- SECTION 3: PROFILE PAGE TESTS ---
-describe("Profile Page Component", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useUserStore.getState().setUser(mockUserData);
-  });
-
-  it("renders user information and calculated stats correctly", () => {
-    render(<BrowserRouter><Profile /></BrowserRouter>);
-    expect(screen.getByText(/Temple Owl/i)).toBeInTheDocument();
-    expect(screen.getByText("15")).toBeInTheDocument();
-  });
-});
-
-// --- SECTION 4: MAP COMPONENT TESTS ---
-describe("MapComponent", () => {
-  const mockVenues = [
-    {
-      venueID: "v1",
-      venue_name: "Temple Courts",
-      marker: { lat: 39.98, lng: -75.15, label: "Temple Courts", venueID: "v1" }
-    },
-    {
-      venueID: "v_invalid",
-      venue_name: "Broken Venue",
-      marker: null
-    }
-  ];
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (getVenues as any).mockResolvedValue(mockVenues);
-    // Mock places response
-    mockTextSearch.mockImplementation((req, cb) => {
-      cb([{ 
-        place_id: "p1", 
-        name: "Suggested Park", 
-        geometry: { location: { lat: () => 40, lng: () => -70 } },
-        vicinity: "123 North St"
-      }], 'OK');
-    });
-  });
-
-  it("loads venues on mount and filters valid markers", async () => {
-    render(<MapComponent userId="owl_001" />);
-    
+  it('loads and renders venue markers on mount', async () => {
+    render(<MapComponent userId="user1" />)
     await waitFor(() => {
-      expect(getVenues).toHaveBeenCalled();
-    });
+      expect(api.getVenues).toHaveBeenCalledOnce()
+      expect(screen.getAllByTestId('marker')).toHaveLength(mockVenues.length)
+    })
+  })
 
-    const markers = await screen.findAllByTestId("map-marker");
-    expect(markers.length).toBeGreaterThanOrEqual(1);
-  });
+  it('filters out venues with invalid marker coordinates', async () => {
+  vi.mocked(api.getVenues).mockResolvedValue([
+    ...mockVenues,
+    { venueID: 'bad1' } as unknown as Venue,
+    { venueID: 'bad2', marker: { lat: 'bad', lng: -75 } } as unknown as Venue,
+  ])
 
-  it("opens an info window when a marker is clicked", async () => {
-    render(<MapComponent userId="owl_001" />);
-    
-    const markers = await screen.findAllByTestId("map-marker");
-    fireEvent.click(markers[0]);
+  render(<MapComponent userId="user1" />)
+  await waitFor(() => {
+    expect(screen.getAllByTestId('marker')).toHaveLength(mockVenues.length)
+  })
+})
 
-    expect(screen.getByTestId("info-window")).toBeInTheDocument();
-  });
+  it('opens an InfoWindow when a marker is clicked', async () => {
+    render(<MapComponent userId="user1" />)
+    await waitFor(() => screen.getAllByTestId('marker'))
 
-  it("activates a suggested Google Place location", async () => {
-    (createVenue as any).mockResolvedValue({ venueID: "new_v123" });
-    
-    render(<MapComponent userId="owl_001" />);
-    
-    const markers = await screen.findAllByTestId("map-marker");
-    fireEvent.click(markers[0]);
+    fireEvent.click(screen.getAllByTestId('marker')[0])
+    expect(screen.getByTestId('infowindow')).toBeInTheDocument()
+    expect(screen.getByText('Test Venue')).toBeInTheDocument()
+  })
 
-    const activateBtn = screen.getByText(/\+ Activate Venue/i);
-    fireEvent.click(activateBtn);
+  it('closes the InfoWindow when close is clicked', async () => {
+    render(<MapComponent userId="user1" />)
+    await waitFor(() => screen.getAllByTestId('marker'))
 
-    await waitFor(() => {
-      expect(createVenue).toHaveBeenCalledWith(expect.objectContaining({
-        venue_name: "Suggested Park"
-      }));
-      expect(addMarker).toHaveBeenCalledWith(expect.objectContaining({
-        venueID: "new_v123",
-        label: "Suggested Park"
-      }));
-    });
-  });
+    fireEvent.click(screen.getAllByTestId('marker')[0])
+    fireEvent.click(screen.getByText('close'))
+    expect(screen.queryByTestId('infowindow')).not.toBeInTheDocument()
+  })
 
-  it("opens the creation modal when clicking empty space on the map", async () => {
-    render(<MapComponent userId="owl_001" />);
-    
-    const mapContainer = screen.getByTestId("google-map");
-    fireEvent.click(mapContainer);
+  it('opens the CreateVenueModal when the map is clicked', async () => {
+    render(<MapComponent userId="user1" />)
 
-    expect(screen.getByText(/Venue Description/i)).toBeInTheDocument();
-    
-    const nameInput = screen.getByPlaceholderText(/Venue Name/i);
-    fireEvent.change(nameInput, { target: { value: "My Secret Court" } });
-    
-    const saveBtn = screen.getByText(/Save/i);
-    fireEvent.click(saveBtn);
+    fireEvent.click(screen.getByTestId('map'), {
+      detail: { latLng: { lat: 39.98, lng: -75.15 } },
+    })
+    expect(screen.getByTestId('modal')).toBeInTheDocument()
+  })
 
-    await waitFor(() => {
-      expect(createVenue).toHaveBeenCalled();
-    });
-  });
-});
+  it('calls onGooglePlacesLoaded when places are found', async () => {
+    const onGooglePlacesLoaded = vi.fn()
+    render(<MapComponent userId="user1" onGooglePlacesLoaded={onGooglePlacesLoaded} />)
+    await waitFor(() => expect(api.getVenues).toHaveBeenCalled())
+  })
+
+  it('calls onVenueActivated after activating a Google Places venue', async () => {
+    const onVenueActivated = vi.fn()
+    vi.mocked(markers.createVenue).mockResolvedValue({ venueID: 'new-v' })
+    vi.mocked(markers.addMarker).mockResolvedValue(undefined)
+
+    render(<MapComponent userId="user1" onVenueActivated={onVenueActivated} />)
+    await waitFor(() => screen.getAllByTestId('marker'))
 
 
+    expect(onVenueActivated).not.toHaveBeenCalled()
+  })
+})

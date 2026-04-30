@@ -167,21 +167,24 @@ export default function WaitlistPage({
 
   // ── Handlers ──────────────────────────────────────────
   const handleJoinCourt = async (courtID: string, name: string) => {
-    setJoiningCourtId(courtID);
-    setError(null);
-    try {
-      const token = await getToken();
-      await joinQueue(courtID, token);
-      setMyCurrentCourt(courtID);
-      setSelectedCourt(courtID);
-      setView('scoreboard');
-    } catch (err: any) {
-      console.error('problem joining court queue', err);
-      setError(err.message || 'Failed to join queue');
-    } finally {
-      setJoiningCourtId(null);
-    }
-  };
+  setJoiningCourtId(courtID);
+  setError(null);
+  try {
+    const token = await getToken();  
+    console.log('joining court:', courtID, 'token:', token ? 'exists' : 'MISSING');
+
+    await joinQueue(courtID, token); 
+
+    setMyCurrentCourt(courtID);
+    setSelectedCourt(courtID);
+    setView('scoreboard');
+  } catch (err: any) {
+    console.error('problem joining court queue', err);
+    setError(err.message || 'Failed to join queue');
+  } finally {
+    setJoiningCourtId(null);
+  }
+};
 
   const handleLeaveCourt = async (courtID: string) => {
     setActionLoading(true);

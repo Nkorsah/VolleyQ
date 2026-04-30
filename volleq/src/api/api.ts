@@ -562,18 +562,14 @@ export const fetchQueue = async (courtID: string): Promise<HydratedQueueEntry[]>
   }
 };
 
-export const joinQueue = async (
-  courtID: string,
-  token: string
-): Promise<{
-  message: string;
-  team: any;
-  team_queue: string[];
-}> => {
+export const joinQueue = async (courtID: string, token?: string) => {
+  console.log('[joinQueue] courtID:', courtID, 'token:', token ? 'exists' : 'MISSING');
   try {
-    const res = await api.put(`/api/venue/court/${courtID}/match/queue/join`);
-    // interceptor handles auth
-    console.log("[joinQueue] success:", res.data);
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/queue/join`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
     return res.data;
   } catch (err) {
     return handleAxiosError(err);
