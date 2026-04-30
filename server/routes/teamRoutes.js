@@ -3,7 +3,8 @@ import { db, admin } from '../firebase.js';
 import { userAuthInfo } from './userRoutes.js';
 import gemini from '../gemini.js';
 import { v4 as uuidv4 } from "uuid";
-import { updateUser } from './userRoutes.js';
+import { updateUser } from './helper functions/updateEntities.js';
+import { calculateTeamSkillLevel } from './helper functions/skillLevel.js';
 
 const router = express.Router();
 
@@ -74,10 +75,10 @@ export const getUserID = async (authHeader) => {
 
 
 // can only join one team at a time.
-router.post('/create-team', async (req, res) => {
+router.post('/create-team', async (req, res) => { // A player makes this request
   console.log('/api/create-team called...');
   try {
-    const { team_name, team_settings } = req.body; // settings
+    const { team_name, team_settings, venueID } = req.body; // settings
 
     if (!team_name || typeof team_name !== 'string') {
       return res.status(400).json({ message: 'name is required' });
@@ -93,6 +94,10 @@ router.post('/create-team', async (req, res) => {
     //   number_of_players: 8,
     //   private: true
     // } 
+
+    // Also need to check if it's a valid venueID.
+    //error handle invalid fields.
+    // can't create team if you're already on a team.
     
     // grab user from DB
     const userDoc = await db.collection("users").doc(userID).get();
@@ -105,35 +110,44 @@ router.post('/create-team', async (req, res) => {
       team_leader: true
     }
     console.log(`new team member: ${JSON.stringify(teamMember)}`)
-
     
     const team_members = [teamMember] // denormalized users go in here
 
     const team_stats = {
       wins: 0,
-      losses: 0
+      losses: 0,
+      win_rate: 0,
+      highest_win_streak: 0, 
+      current_streak: 0
     }
-    
+
+    const match_status = {
+      status: 'idle',
+      current_matchID: null
+    }
+        
     const team = {
       teamID: uuidv4(), // unique id for the team
-      venueID: "philly", // change this later
+      venueID: venueID, // change this later
       team_name: team_name,
       owner_id: userID,
       members: team_members,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       team_settings,
       team_stats,
+      match_status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
     await db.collection('teams').doc(team.teamID).set(team); // creating the team document. 
     // creating the team document from the user. 
-    const allowedFields =  ["teamID", "team_name", "team_leader"]; // updating user team name and team id
     const updateData = { teamID: team.teamID, team_name: team.team_name , team_leader: true} // changing the fields on the user side of things
-    const updatedUser = await updateUser(userID, updateData, allowedFields);
+    const updatedUser = await updateUser(userID, updateData);
     
         if (!updatedUser) {
           return res.status(400).json({ message: "No valid fields to update" });
         }
+
     console.log("User updated with teamID:", updatedUser);
     // await db.collection('users').doc(userID).set({ current_teamID: team.teamID }, { merge: true });
 
@@ -160,25 +174,57 @@ router.get('/teams', async (req, res) => {
     //   .where('memberIds', 'array-contains', userID)
     //   .get();
 
-    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); // What does this do? 
+    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
     res.status(200).json(teams);
+
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
+router.get('/team/:teamID', async (req, res) => {
+  console.log('/api/team/:id called...');
 
-router.get('/team/:id', async (req, res) => { // getting team by ID
-  console.log('/api/teams called...');
   try {
-    const userID = getUserID(req.headers.authorization);
+    const { teamID } = req.params;
 
-    const snap = await db.collection('teams')
-      .where('memberIds', 'array-contains', userID)
+    const doc = await db.collection('teams').doc(teamID).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    const team = { teamID: doc.teamID, ...doc.data() };
+
+    res.status(200).json(team);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+router.get('/teams/venue/:venueID', async (req, res) => {
+  console.log('/api/teams/venue/:venueID called...');
+
+  try {
+    const { venueID } = req.params;
+
+    const snap = await db
+      .collection('teams')
+      .where('venueID', '==', venueID)
       .get();
 
-    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (snap.empty) {
+      return res.status(404).json({ message: 'No teams found for this venue' });
+    }
+
+    const teams = snap.docs.map(doc => ({
+      teamID: doc.id, // ✅ correct way
+      ...doc.data(),
+    }));
+
     res.status(200).json(teams);
   } catch (err) {
     console.error(err);
@@ -267,17 +313,19 @@ if (isAlreadyMember) {
     // await updateTeam(teamID, { members: [...existingMembers, newMember] }, ["members"]); // my function
 
     // 8️⃣ Update user with team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = {
       teamID: teamData.teamID,
       team_name: teamData.team_name,
       team_leader: false
     };
-    await updateUser(userID, updateData, allowedFields);
+    await updateUser(userID, updateData);
 
     // 9️⃣ Return updated team info
     const updatedTeamDoc = await teamRef.get();
     res.status(200).json({ message: "Joined team successfully", team: updatedTeamDoc.data() });
+
+    // Recalculate overall Team Skill Score
+    await recalculateTeamSkill(teamID);
 
   } catch (err) {
     console.error("Error in /join-team:", err);
@@ -285,17 +333,18 @@ if (isAlreadyMember) {
   }
 });
 
-router.delete('/leave-team/:teamID', async (req, res) => { // work on transfering ownership when leaving
+// use zod for type verification
+router.delete("/leave-team/:teamID", async (req, res) => {
   const { teamID } = req.params;
-
+   console.log("🔥 BACKEND leave-team HIT", req.params.teamID);
+  console.log('leaving team!')
   try {
-    // 1️⃣ Get user ID
     const userID = await getUserID(req.headers.authorization);
+
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // 2️⃣ Fetch team
     const teamRef = db.collection("teams").doc(teamID);
     const teamDoc = await teamRef.get();
 
@@ -305,66 +354,114 @@ router.delete('/leave-team/:teamID', async (req, res) => { // work on transferin
 
     const teamData = teamDoc.data();
 
-    // 3️⃣ Normalize members (handle object vs array)
-    const rawMembers = teamData.members;
-    const existingMembers = Array.isArray(rawMembers)
-      ? rawMembers
-      : rawMembers
-        ? Object.values(rawMembers)
-        : [];
-
-    console.log("Members before removal:", existingMembers);
-
-    // 4️⃣ Check if user is in team
-    const isMember = existingMembers.some(
-      member => String(member.userID) === String(userID)
-    );
-
-    if (!isMember) {
-      return res.status(400).json({ message: "User is not in this team" });
+    // block leaving match if team is in a match
+    const team_matchID = teamData.match_status.current_matchID
+    if (team_matchID) {
+      return res.status(409).json({
+        message: "Team is currently in a match. Leave the court first.",
+      });
     }
 
-    // 5️⃣ Remove user from members
-    const updatedMembers = existingMembers.filter(
-      member => String(member.userID) !== String(userID)
+    //   members = [
+    //   { userID: "1", team_leader: false },
+    //   { userID: "2", team_leader: true },
+    // ];
+
+
+    const members = Array.isArray(teamData.members)
+      ? teamData.members
+      : Object.values(teamData.members || {});
+
+    const isLeader = members.some(
+      (m) => m.userID === userID && m.team_leader
     );
 
-    console.log("Members after removal:", updatedMembers);
+    const remainingMembers = members.filter(
+      (m) => m.userID !== userID
+    );
 
-    // 6️⃣ Update team
-    // await updateTeam(teamID, { members: updatedMembers }, ["members"]);
-    await teamRef.update({ // temp fix because update team doesn't replace members array
-  members: updatedMembers
-});
+    // 🧠 CASE: leader leaves → transfer leadership
+    if (isLeader && remainingMembers.length > 0) {
+      const newLeaderID = remainingMembers[0].userID;
 
-    // 7️⃣ Clear user's team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
-    const updateData = {
-      teamID: null,
-      team_name: null,
-      team_leader: false
-    };
+      await transferTeamLeader(teamID, userID, newLeaderID);
+    }
 
-    await updateUser(userID, updateData, allowedFields);
+    // 🧹 CASE: last member leaves → delete team
+    // also if team is currently playing a match. Do not delete! 
+    if (remainingMembers.length === 0) {
+    
+      await teamRef.delete(); // I should probably make a delete function for each entity
+      await updateUser(userID, {
+        teamID: null,
+        team_name: null,
+        team_leader: false,
+      });
 
-    // 8️⃣ Return updated team
-    const updatedTeamDoc = await teamRef.get();
+      return res.status(200).json({
+        message: "Team deleted because last member left",
+      });
+    }
 
-    res.status(200).json({
-      message: "User removed from team",
-      team: updatedTeamDoc.data()
+    // ✂️ Normal removal
+    await teamRef.update({
+      members: remainingMembers,
     });
 
+    // Recalculate overall team skill score
+    await recalculateTeamSkill(teamID);
+
+    await updateUser(userID, {
+      teamID: null,
+      team_name: null,
+      team_leader: false,
+    });
+
+    const updatedTeam = (await teamRef.get()).data();
+
+    return res.status(200).json({
+      message: "User left team",
+      team: updatedTeam,
+    });
   } catch (err) {
-    console.error("Error in /leave-team:", err);
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       message: "Internal Server Error",
-      error: err.message
+      error: err.message,
     });
   }
 });
 
-router.delete('/team/kick/:userID', async (req, res) => {
+const transferTeamLeader = async (teamID, currentLeaderID, newLeaderID) => {
+  const teamRef = db.collection("teams").doc(teamID);
+  const teamDoc = await teamRef.get();
+
+  const members = teamDoc.data().members;
+
+  const updatedMembers = members.map(m => {
+    if (m.userID === newLeaderID) return { ...m, team_leader: true };
+    if (m.userID === currentLeaderID) return { ...m, team_leader: false };
+    return m;
+  });
+
+  const updatedTeam = {
+    members: updatedMembers,
+    owner_id: newLeaderID
+  };
+
+  await teamRef.update(updatedTeam);
+
+  await Promise.all([
+    updateUser(newLeaderID, { team_leader: true }),
+    updateUser(currentLeaderID, { team_leader: false })
+  ]);
+
+  return updatedTeam;
+};
+
+
+router.delete('/kick/:userID', async (req, res) => {
   const { userID: targetUserID } = req.params;
 
   try {
@@ -421,9 +518,8 @@ router.delete('/team/kick/:userID', async (req, res) => {
     await teamRef.update({ members: updatedMembers });
 
     // 8️⃣ Clear kicked user's team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = { teamID: null, team_name: null, team_leader: false };
-    await updateUser(targetUserID, updateData, allowedFields);
+    await updateUser(targetUserID, updateData);
 
     // 9️⃣ Return updated team
     const updatedTeamDoc = await teamRef.get();
@@ -435,7 +531,7 @@ router.delete('/team/kick/:userID', async (req, res) => {
   }
 });
 
-router.delete('/team/delete', async (req, res) => {
+router.delete('/delete', async (req, res) => {
   try {
     // 1️⃣ Get team leader ID (the one requesting deletion)
     const team_leaderID = await getUserID(req.headers.authorization);
@@ -474,10 +570,10 @@ router.delete('/team/delete', async (req, res) => {
     }
 
     // 5️⃣ Clear all members' team info
-    const allowedFields = ["teamID", "team_name", "team_leader"];
     const updateData = { teamID: null, team_name: null, team_leader: false };
 
-    const updatePromises = members.map(m => updateUser(m.userID, updateData, allowedFields));
+    // for each member, delete the team info
+    const updatePromises = members.map(m => updateUser(m.userID, updateData));
     await Promise.all(updatePromises);
 
     // 6️⃣ Delete the team document
@@ -491,7 +587,7 @@ router.delete('/team/delete', async (req, res) => {
   }
 });
 
-router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
+router.put('/promote/:newLeaderID', async (req, res) => { // promote user
 
   const { newLeaderID } = req.params;
 
@@ -548,12 +644,12 @@ router.put('/team/promote/:newLeaderID', async (req, res) => { // promote user
       return m;
     });
 
-    await teamRef.update({ members: updatedMembers });
+    // have to update ownerID
+    await teamRef.update({ members: updatedMembers, owner_id: newLeaderID});
 
     // 9️⃣ Update user documents
-    const allowedFields = ["team_leader"];
-    await updateUser(newLeaderID, { team_leader: true }, allowedFields);
-    await updateUser(team_leaderID, { team_leader: false }, allowedFields);
+    await updateUser(newLeaderID, { team_leader: true });
+    await updateUser(team_leaderID, { team_leader: false });
 
     res.status(200).json({
       message: `Team leadership transferred to user ${newLeaderID}`,
@@ -689,5 +785,38 @@ router.post('/analyze-team/:teamId', async (req, res) => {// Don't think I need 
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
+router.put('/:teamID/skill', async (req, res) => {
+  const { teamID } = req.params;
+  const { skill_level } = req.body;
+
+  const valid = ['Beginner', 'Intermediate', 'Advanced'];
+  if (!valid.includes(skill_level)) {
+    return res.status(400).json({ message: 'skill_level must be Beginner, Intermediate, or Advanced' });
+  }
+
+  try {
+    const userID = await getUserID(req.headers.authorization);
+    const user = await getUser(userID);
+
+    if (user.teamID !== teamID) {
+      return res.status(403).json({ message: 'You can only update your own team skill level' });
+    }
+
+    await db.collection('teams').doc(teamID).update({ skill_level });
+
+    return res.status(200).json({ message: 'Skill level updated', skill_level });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+async function recalculateTeamSkill(teamID) {
+  const { skill_level, skill_score } = await calculateTeamSkillLevel(teamID, db);
+  await db.collection('teams').doc(teamID).update({ skill_level, skill_score });
+  console.log(`Team ${teamID} skill recalculated → ${skill_level} (${skill_score})`);
+}
+
 
 export default router;

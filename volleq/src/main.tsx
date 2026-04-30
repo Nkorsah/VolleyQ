@@ -13,6 +13,8 @@ import "./index.css";
 import { RouterProvider } from "react-router-dom";
 import { Router } from "react-router-dom";
 import { createBrowserRouter } from "react-router-dom";
+import VenueDetailsView from "./pages/VenueDetailsView.tsx";
+// import MapPage from "./pages/MapPage.tsx";
 
 
 // Define all routes
@@ -20,9 +22,10 @@ const router = createBrowserRouter([
   {path:"/", element:<Login/>},
   {path:"/home", element:<App/>},
   {path:"/register", element:<Register/>},
-  {path:"/map-page", element:<MapPage/>},
+  {path:"/map", element:<MapPage/>},
   {path:"/profile", element:<Profile/>},
-  {path:"/settings", element:<Settings/>}
+  {path:"/settings", element:<Settings/>},
+  {path:"/Venue/:venue_name/:venueID", element:<VenueDetailsView/>}
 ])
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

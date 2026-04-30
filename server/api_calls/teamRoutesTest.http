@@ -14,9 +14,87 @@ Authorization: Bearer test 555
   }
 }
 
+### Create a new team under user 333
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 333
+
+{
+  "team_name": "BigFishes",
+  "venueID": "123",
+  "team_settings": {
+    "team_color": "#3d26bf",
+    "number_of_players": 6,
+    "private": false
+  }
+}
+
+### Create a new team under user 444
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 444
+
+{
+  "team_name": "Sharks",
+  "venueID": "123",
+  "team_settings": {
+    "team_color": "#00f49f",
+    "number_of_players": 6,
+    "private": false
+  }
+}
+
+
+### Create a new team under user 777
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 777
+
+{
+  "team_name": "the Lucky",
+  "venueID": "123",
+  "team_settings": {
+    "team_color": "#00f49f",
+    "number_of_players": 6,
+    "private": false
+  }
+}
+
+
+### Create a new team under user 222
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{
+  "team_name": "Mike's Team",
+  "venueID": "123",
+  "team_settings": {
+    "team_color": "#ff987f",
+    "number_of_players": 6,
+    "private": false
+  }
+}
+
+
+
+### Create a new team under user 888
+POST http://localhost:8080/api/create-team
+Content-Type: application/json
+Authorization: Bearer test 888
+
+{
+  "team_name": "the GangStars",
+  "venueID": "123",
+  "team_settings": {
+    "team_color": "#c500cc",
+    "number_of_players": 6,
+    "private": false
+  }
+}
 
 ### // get a list of teams. In the future, I want to do this by venue. 
-GET http://localhost:8080/api/teams
+GET http://localhost:8080/api/team/b47f3802-b779-4945-8b94-14eb1e2bd92b
 Content-Type: application/json
 Authorization: Bearer test 555
 
@@ -46,7 +124,7 @@ Content-Type: application/json
 Authorization: Bearer test 666
 
 ### // liam joins team
-PUT http://localhost:8080/api/join-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+PUT http://localhost:8080/api/team/join-team/42e3da93-2c20-4540-a2d7-14c7adb3e1fa
 Content-Type: application/json
 Authorization: Bearer test 777
 
@@ -78,7 +156,7 @@ DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
 Authorization: Bearer test 666
 
 ### // liam (777) leaves team
-DELETE http://localhost:8080/api/leave-team/f7ba05b7-de01-41ce-bc0e-708621cc703e
+DELETE http://localhost:8080/api/team/leave-team/0c722444-ab0f-4b97-a3cb-df69e20dcb78
 Authorization: Bearer test 777
 
 ### // olivia (888) leaves team
@@ -145,3 +223,5 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/team/delete
 Authorization: Bearer test 555
 Content-Type: application/json
+
+

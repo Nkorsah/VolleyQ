@@ -1,0 +1,87 @@
+
+### // so you can only join if the user
+POST http://localhost:8080/api/venue/court/match/queue/join
+Content-Type: application/json
+Authorization: Bearer test 444
+
+{
+    "court_name":"court 2",
+    "max_teams_in_queue":8,
+    "queue_type":"FIFO",
+    "score_limit":25,
+    "venueID":"9644b2b4-ee54-492d-a286-e48881c3ed8b"
+}
+
+### // liam creates a court
+POST http://localhost:8080/api/venue/court/create
+Content-Type: application/json
+Authorization: Bearer test 777
+
+{
+    "court_name":"court 0",
+    "max_teams_in_queue":8,
+    "queue_type":"FIFO",
+    "score_limit":25,
+    "venueID":"46ea6b54-23fa-4e90-9475-4d3b261316ed"
+}
+
+###
+GET http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/queue/
+Content-Type: application/json
+Authorization: Bearer test 777
+
+###  // liam advances queue
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/queue/advance
+Content-Type: application/json
+Authorization: Bearer test 777
+
+### // liam joins match queue 
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/queue/join
+Content-Type: application/json
+Authorization: Bearer test 777
+
+### // liam starts match
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/start
+Content-Type: application/json
+Authorization: Bearer test 777 
+
+### // liam ends match
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/end
+Content-Type: application/json
+Authorization: Bearer test 777
+
+//------------------ Olivia user ------------
+
+### // olivia joins match queue 
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/queue/join
+Content-Type: application/json
+Authorization: Bearer test 888
+
+//----------------- mike joins ------------
+### // mike joins match queue 
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/queue/join
+Content-Type: application/json
+Authorization: Bearer test 222
+
+// courtID: 0fff9d77-9509-4abf-b98e-aedc236c1700
+// matchID: ad9dfafd-0daa-4d6b-8f83-7f5d62c236b4
+// QueueID: 6a15de12-fb26-4b67-abd8-7e4c484edf2c
+
+###
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/update-score
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{
+    "team": "team1"
+}
+
+###
+PUT http://localhost:8080/api/venue/court/0fff9d77-9509-4abf-b98e-aedc236c1700/match/update-score
+Content-Type: application/json
+Authorization: Bearer test 222
+
+{
+    "team": "team2"
+}
+

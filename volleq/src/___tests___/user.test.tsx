@@ -1,68 +1,138 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { useUserStore } from '../store/user';
-import { useTeamStore } from '../store/team';
-import { User } from '../store/user';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { useUserStore, useUserSync } from "../store/user.ts";
+import { doc, onSnapshot } from "firebase/firestore";
+import { User } from "../types/types";
 
-describe('User and Team State Synchronization', () => {
+// 1. Mock Firestore functions
+vi.mock("firebase/firestore", () => ({
+  doc: vi.fn(),
+  onSnapshot: vi.fn(),
+  getFirestore: vi.fn(),
+}));
+
+// 2. Mock Firebase Service to prevent actual DB connections
+vi.mock("../firebase/firebase-service.ts", () => ({
+  db: {},
+}));
+
+describe("User Store (Zustand)", () => {
+  const mockUserData: User = {
+    userID: "owl_001",
+    name: "Temple Owl",
+    email: "owl@temple.edu",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Temple",
+    stats: {
+      wins: 10,
+      losses: 5,
+      games_played: 15,
+    },
+    createdAt: new Date(),
+  };
+
   beforeEach(() => {
+    // Clear Zustand state and mocks before each test
     useUserStore.getState().clearUser();
-    // implement resetTeam, use:
-    // useTeamStore.setState({ currentTeam: null, teamMembers: [] });
+    vi.clearAllMocks();
   });
 
-  it('should perform a successful two-way handshake when joining a team', () => {
-    //setup initial user with ALL required properties
-    const mockUser: User = { 
-      uid: 'user_123', 
-      name: 'Temple Player', 
-      avatarUrl: 'https://placeholder.com/avatar.png',
-      teamId: null,
-      stats: {
-        gamesPlayed: 0,
-        wins: 0
-      }
-    };
-    
-    useUserStore.getState().setUser(mockUser);
+  it("should initialize with null user", () => {
+    const state = useUserStore.getState();
+    expect(state.user).toBeNull();
+    expect(state.justRegistered).toBe(false);
+  });
 
-    // 2. simulate the Join Logic
-    const targetTeamId = 'vball_pro_001';
-    const targetTeamName = 'Tigers';
+  it("should set user data correctly", () => {
+    useUserStore.getState().setUser(mockUserData);
+    expect(useUserStore.getState().user?.name).toBe("Temple Owl");
+    expect(useUserStore.getState().user?.userID).toBe("owl_001");
+  });
 
-    useUserStore.getState().updateUser({ teamId: targetTeamId });
-    useTeamStore.getState().setTeam(targetTeamName);
-    useTeamStore.getState().addMember(mockUser.uid);
+  it("should update top-level fields (Partial update)", () => {
+    useUserStore.getState().setUser(mockUserData);
+    useUserStore.getState().updateUser({ name: "New Name", teamID: "team_123" });
 
-    // 3. assertions
     const updatedUser = useUserStore.getState().user;
-    const updatedTeam = useTeamStore.getState();
-
-    expect(updatedUser?.teamId).toBe(targetTeamId);
-    expect(updatedTeam.currentTeam).toBe(targetTeamName);
-    expect(updatedTeam.teamMembers).toContain(mockUser.uid);
+    expect(updatedUser?.name).toBe("New Name");
+    expect(updatedUser?.teamID).toBe("team_123");
+    // Ensure stats weren't lost
+    expect(updatedUser?.stats.wins).toBe(10);
   });
 
-  it('should prevent joining a team if the user already has a teamId', () => {
-    // provide a full user object here as well
-    const userWithTeam: User = { 
-      uid: 'user_123', 
-      name: 'Player', 
-      avatarUrl: '',
-      teamId: 'existing_team_999',
-      stats: { gamesPlayed: 5, wins: 2 }
+  it("should update nested stats correctly using Immer", () => {
+    useUserStore.getState().setUser(mockUserData);
+    
+    // Increment wins only
+    useUserStore.getState().updateUser({
+      stats: { wins: 11, games_played: 16 }
+    } as any);
+
+    const updatedUser = useUserStore.getState().user;
+    expect(updatedUser?.stats.wins).toBe(11);
+    expect(updatedUser?.stats.games_played).toBe(16);
+    // CRITICAL: Ensure losses (which wasn't in the update) is still there
+    expect(updatedUser?.stats.losses).toBe(5);
+  });
+
+  it("should clear user data on logout", () => {
+    useUserStore.getState().setUser(mockUserData);
+    useUserStore.getState().clearUser();
+    expect(useUserStore.getState().user).toBeNull();
+  });
+});
+
+describe("useUserSync Hook", () => {
+  const mockUser: User = {
+    userID: "sync_test_user",
+    name: "Sync User",
+    email: "sync@test.com",
+    avatarUrl: "",
+    stats: { wins: 0, losses: 0, games_played: 0 },
+    createdAt: new Date(),
+  };
+
+  beforeEach(() => {
+    useUserStore.getState().setUser(mockUser);
+    vi.clearAllMocks();
+  });
+
+  it("should not attach listener if no userID is present", () => {
+    useUserStore.getState().clearUser();
+    renderHook(() => useUserSync());
+    expect(onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("should update store when firestore snapshot triggers", () => {
+    let snapshotCallback: any;
+    
+    // Capture the callback function passed to onSnapshot
+    (onSnapshot as any).mockImplementation((_ref: any, callback: any) => {
+      snapshotCallback = callback;
+      return () => {}; // Return a dummy unsubscribe function
+    });
+
+    renderHook(() => useUserSync());
+
+    // Simulate database pushing a team assignment
+    const dbUpdate = {
+      exists: () => true,
+      data: () => ({ teamID: "new_team_alpha", team_name: "The Raptors" })
     };
 
-    useUserStore.getState().setUser(userWithTeam);
+    snapshotCallback(dbUpdate);
 
-    const currentUser = useUserStore.getState().user;
+    const updatedUser = useUserStore.getState().user;
+    expect(updatedUser?.teamID).toBe("new_team_alpha");
+    expect(updatedUser?.team_name).toBe("The Raptors");
+  });
 
-    const joinAttempt = () => {
-      // check if user is already on a team
-      if (currentUser?.teamId) {
-        throw new Error("Leave your current team first");
-      }
-    };
+  it("should cleanup/unsubscribe when unmounted", () => {
+    const unsubscribeMock = vi.fn();
+    (onSnapshot as any).mockReturnValue(unsubscribeMock);
 
-    expect(joinAttempt).toThrow("Leave your current team first");
+    const { unmount } = renderHook(() => useUserSync());
+    unmount();
+
+    expect(unsubscribeMock).toHaveBeenCalled();
   });
 });

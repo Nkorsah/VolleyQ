@@ -12,6 +12,8 @@
 //   // Add any other custom fields here, e.g. role, stats
 // };
 
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export type User = {
   userID: string;
   name: string;
@@ -19,10 +21,12 @@ export type User = {
   avatarUrl: string;
   teamID?: string;
   host?: boolean; // role changes the frontend pages
+  hosted_courtID?: string;
   team_leader?: boolean; // role changes the frontend pages
   team_name?:string;
   locationID?: string;
   location_name?: string;
+  skill_level?: SkillLevel;
 
   current_teamID?: string;
 
@@ -34,15 +38,33 @@ export type User = {
 
   createdAt: Date | null;
 }
+export type TeamMember = {
+  userID: string;
+  name: string;
+  avatarUrl: string;
+  team_leader: boolean;
+};
 
 export type Team = {
-  id: string;
-  name: string;
-  ownerId: string;
-  memberIds: string[];
-  createdAt: string;
-  stats: {
+  teamID: string;
+  team_name: string;
+  owner_id: string;
+  difficulty_rating: number;
+  queue_time: string;
+
+  members: TeamMember[];
+
+  team_settings: {
+    team_color: string;
+    number_of_players: number;
+    private: boolean;
+  };
+
+  team_stats: {
     wins: number;
     losses: number;
-  }
+  };
+
+  createdAt: any;
+  venueID: string;
 };

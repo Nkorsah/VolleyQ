@@ -60,7 +60,7 @@ export const useUserStore = create<UserStore>()(
 import { doc, onSnapshot } from "firebase/firestore";
 
 
-export const useUserSync = () => {
+export const useUserSync = () => { // syncs changes from firebase 
   const user = useUserStore((state) => state.user);
   const updateUser = useUserStore((state) => state.updateUser);
 

@@ -1,0 +1,24 @@
+GET http://localhost:8080/api/venue/teams
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{
+    "venueID":"123"
+}
+
+###
+POST http://localhost:8080/api/venue/create
+Content-Type: application/json
+Authorization: Bearer test 555
+
+{
+    "venue_name":"The La4", 
+    "venue_description":"This is a causual friendly court. Have fun!!"
+}
+
+###
+GET http://localhost:8080/api/venue
+Content-Type: application/json
+Authorization: Bearer test 555
+
+###

@@ -1,4 +1,9 @@
 import { useState, JSX } from "react";
+import { useParams } from "react-router-dom";
+import { createCourt } from "../api/api";
+import { useUserStore } from "../store/user";
+import { useEffect } from "react";
+import { deleteCourt } from "../api/api";
 
 interface Props {
   onBack: () => void;
@@ -7,13 +12,19 @@ interface Props {
 type HostView = "settings" | "select_queue" | "hosted";
 
 export default function HostCourtPage({ onBack }: Props): JSX.Element {
+  const user = useUserStore((state) => state.user);
+  const { venueID } = useParams<{ venueID: string }>();
   const [view, setView] = useState<HostView>("settings");
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // --- NEW EDITABLE STATE ---
+
   const [maxTeams, setMaxTeams] = useState(8);
   const [courtName, setCourtName] = useState("COURT 1");
+  // const [courtName, setCourtName] = useState("Court_name");
+  const [courtID, setCourtID] = useState("");
   const [scoreLimit, setScoreLimit] = useState(25);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const queueOptions = [
     {
@@ -33,10 +44,71 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
     }
   ];
 
-  const handleNext = () => setCurrentIndex((prev) => (prev + 1) % queueOptions.length);
-  const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + queueOptions.length) % queueOptions.length);
+  // const handleNext = () => setCurrentIndex((prev) => (prev + 1) % queueOptions.length);
+  // const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + queueOptions.length) % queueOptions.length);
+
+  useEffect(() => {
+    if (!user) return;
+
+    console.log("courtID: ", user.hosted_courtID)
+
+    if (user.hosted_courtID) {
+      setView("hosted");
+    } else {
+      setView("settings");
+    }
+
+
+  }, [user]);
+
 
   const currentQueue = queueOptions[currentIndex];
+
+  const handleCreateCourt = async () => {
+    if (!venueID) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await createCourt({
+        court_name: courtName,
+        max_teams_in_queue: maxTeams,
+        queue_type: currentQueue.title as 'FIFO' | 'CIRCULAR' | 'PRIORITY QUEUE',
+        score_limit: scoreLimit,
+        venueID,
+      });
+
+      setView("hosted");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to create court");
+    } finally {
+      setLoading(false);
+    }
+
+  };
+
+  const handleCloseCourt = async (courtID: string) => {
+    // handle closing court
+    console.log('closing court!!!')
+    if(!user?.hosted_courtID){
+      return;
+    }
+
+    try {
+      
+      await deleteCourt(courtID);
+      onBack();
+    } catch(err) {
+      console.error("delete court failed:", err);
+    }
+   
+  };
+
+  const handleNext = () =>
+    setCurrentIndex((prev) => (prev + 1) % queueOptions.length);
+  const handlePrev = () =>
+    setCurrentIndex(
+      (prev) => (prev - 1 + queueOptions.length) % queueOptions.length,
+    );
 
   // --- 1. SETTINGS VIEW ---
   if (view === "settings") {
@@ -121,10 +193,12 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
 
           <div className="mt-12">
             <button 
-              onClick={() => setView("hosted")} 
-              className="w-full py-4 bg-[#f7e49a] border-2 border-black font-black text-xl rounded-lg uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all hover:bg-[#f2db82]"
+              onClick={handleCreateCourt} 
+              disabled={loading}
+              className="w-full py-4 bg-[#f7e49a] border-2 border-black font-black text-xl rounded-lg uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all hover:bg-[#f2db82] disabled:opacity-50"
+              
             >
-              Create Court
+              {loading ? "Creating..." : "Create Court"}
             </button>
           </div>
         </div>
@@ -182,7 +256,14 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
         </p>
 
         <div className="flex gap-6 justify-center">
-          <button className="px-8 py-3 bg-[#f87171] border-2 border-black font-bold text-lg rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase">
+          <button
+            onClick={() => {
+              if (!user?.hosted_courtID) return;
+              handleCloseCourt(user?.hosted_courtID)}
+              
+            }
+            className="px-8 py-3 bg-[#f87171] border-2 border-black font-bold text-lg rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase"
+          >
             Close Court
           </button>
           <button onClick={onBack} className="px-8 py-3 bg-[#f7e49a] border-2 border-black font-bold text-lg rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase">

@@ -3,6 +3,7 @@
 import axios from "axios";
 import { auth } from "../firebase/firebase-service";
 import { User } from "../types/types";
+import { Team } from "../types/types";
 const BASE_URL = import.meta.env.VITE_SERVER_HOST;
 
 
@@ -13,23 +14,17 @@ export type CreateUserRequest = {
 };
 
 export type CreateTeamRequest = {
-  name: string;
+  team_name: string;
+  team_settings: {
+    team_color: string;
+    number_of_players: number;
+    private: boolean;
+  };
+  venueID: string;
 };
 
 export type JoinTeamRequest = {
   teamId: string;
-};
-
-export type Team = {
-  id: string;
-  name: string;
-  ownerId: string;
-  memberIds: string[];
-  createdAt: string;
-  stats: {
-    wins: number;
-    losses: number;
-  }
 };
 
 export type AnalyzeTeamResponse = {
@@ -40,17 +35,209 @@ export type Marker = {
   id: string;
   lat: number;
   lng: number;
-  label: string;
+  label: string; // also venue name
   createdBy: string;
   createdAt: string;
+  venueID: string;
 };
 
 export type CreateMarkerRequest = {
   lat: number;
   lng: number;
   label: string;
+  venueID: string;
 };
 
+export type CourtSettings = {
+  court_name: string;
+  max_teams_in_queue: number;
+  queue_type: 'FIFO' | 'CIRCULAR' | 'Priority Queue';
+  score_limit: number;
+};
+
+export type Court = {
+  courtID: string;
+  venueID: string;
+  court_hostID: string;
+  matchID: string;
+  queueID: string;
+  queue_length: number;
+  court_settings: CourtSettings;
+  createdAt: string;
+};
+
+export type Set = {
+  teamAPoints: number;
+  teamBPoints: number;
+};
+
+export type Match = {
+  matchID: string;
+  courtID: string;
+  queueID: string;
+  team1: MatchTeam | null;
+  team2: MatchTeam | null;
+  ongoing: boolean;
+  createdAt: string;
+};
+
+export type CreateMatchRequest = {
+  courtId: string;
+  courtName: string;
+  teamA: { id: string; name: string };
+  teamB: { id: string; name: string };
+  sets: Set[];
+};
+
+
+export type MatchTeam = {
+  teamID: string;
+  team_name: string;
+  team_score: number;
+  team_color: string;
+};
+
+export type Queue = {
+  queueID: string;
+  courtID: string;
+  matchID: string;
+  queue_type: string;
+  team_queue: string[];
+  createdAt: string;
+};
+
+export type HydratedQueueEntry = {
+  teamID: string;
+  name: string;
+  position: number;
+  status: QueueStatus;
+};
+
+export type CreateCourtRequest = {
+  court_name: string;
+  max_teams_in_queue: number;
+  queue_type: 'FIFO' | 'CIRCULAR' | 'PRIORITY QUEUE';
+  score_limit: number;
+  venueID: string;
+};
+
+export type UpdateScoreResponse = {
+  message: string;
+  team1_score: number;
+  team2_score: number;
+};
+
+export type CreateCourtResponse = {
+  court: Court;
+  match: Match;
+  queue: Queue;
+};
+
+export type Venue = {
+  venueID: string;
+  venue_name: string;
+  venue_description: string;
+  venue_creator: string;
+  address: string | null;
+  markerID: string | null;
+  marker: object | null;
+  number_of_teams: number;
+  number_of_courts: number;
+  createdAt: string;
+  updatedAt: string | null;
+};
+
+export type CreateVenueRequest = {
+  venue_name: string;
+  venue_description?: string;
+};
+
+export type CreateQueueEntryRequest = {
+  courtId: string;
+  teamId: string;
+  teamName: string;
+};
+
+
+export type QueueEntry = {
+  id: string;
+  teamId: string;
+  teamName: string;
+  joinedAt: string;
+  position: number;
+}
+
+export type TeamMatchRecord = {
+  matchId: string;
+  opponent: { id: string; name: string };
+  result: 'win' | 'loss';
+  sets: Set[];
+  courtId: string;
+  playedAt: string;
+};
+
+export type MatchPredictionRequest = {
+  courtID: string;
+  team1: {
+    teamID: string;
+    team_name: string;
+    team_score: number;
+    skill_level?: string;
+  };
+  team2: {
+    teamID: string;
+    team_name: string;
+    team_score: number;
+    skill_level?: string;
+  };
+  score_limit: number;
+};
+
+export type MatchPredictionResponse = {
+  prediction: string;
+};
+
+
+
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export type QueueStatus = 'playing' | 'on_deck' | 'waiting';
+
+export type PriorityQueueEntry = {
+  teamID: string;
+  name: string;
+  skill_level: SkillLevel;
+  joinedAt: string;
+  position: number;
+  status: QueueStatus;
+};
+
+export type AdvanceQueueResponse = {
+  message: string;
+  team_queue: any[];
+  removed_teamID?: string;
+  team1?: { teamID: string; skill_level: SkillLevel };
+  team2?: { teamID: string; skill_level: SkillLevel };
+  same_skill_level?: boolean;
+};
+
+export type LeaveQueueResponse = {
+  message: string;
+  team_queue: string[];
+};
+
+export type UserSettings = {
+  skill_level: SkillLevel;
+  name: string;
+  email: string;
+  avatarUrl: string;
+};
+
+export type UpdateSkillResponse = {
+  message: string;
+  skill_level: SkillLevel;
+  teams_updated: number;
+};
 
 type settings = {
   
@@ -94,6 +281,7 @@ export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
     throw handleAxiosError(err);
   }
 };
+
 
 
 
@@ -141,14 +329,13 @@ export const deleteUserDataDB = async (): Promise<void> => {
   }
 };
 
-
 export const createTeam = async (newTeam: CreateTeamRequest): Promise<Team> => {
   try {
-    const res = await api.post(`/api/create-team`, newTeam);
+    const res = await api.post(`/api/team/create-team`, newTeam);
     console.log('[createTeam] success:', res.data);
     return res.data;
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err); // 🔥 change this (don’t return)
   }
 };
 
@@ -165,36 +352,82 @@ export const fetchTeams = async (): Promise<Team[]> => {
 
 export const joinTeam = async (teamId: string): Promise<Team> => {
   try {
-    const res = await api.put(`/api/join-team/${teamId}`);
+    const res = await api.put(`/api/team/join-team/${teamId}`);
     console.log('[joinTeam] success:', res.data);
     return res.data;
   } catch (err) {
-    return handleAxiosError(err);
+    throw handleAxiosError(err);
   }
 };
 
-export const deleteTeam = async (teamId: string): Promise<void> => {
+export const leaveTeam = async (teamId: string): Promise<Team> => {
   try {
-    await api.delete(`/api/delete-team/${teamId}`);
+    console.log("🚨 leaveTeam CALLED with:", teamId);
+
+    const res = await api.delete(`/api/team/leave-team/${teamId}`);
+    console.log('[leaveTeam] success:', res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const promoteToLeader = async (
+  newLeaderID: string
+): Promise<{ message: string; members: any[] }> => {
+  try {
+    const res = await api.put(`/api/team/promote/${newLeaderID}`);
+
+    console.log("[promoteToLeader] success:", res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const kickMember = async (
+  userID: string
+): Promise<{ message: string; team: any }> => {
+  try {
+    const res = await api.delete(`/api/team/kick/${userID}`);
+
+    console.log("[kickMember] success:", res.data);
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const deleteTeam = async (): Promise<void> => {
+  try {
+    await api.delete(`/api/team/delete`);
     console.log('[deleteTeam] success');
   } catch (err) {
     return handleAxiosError(err);
   }
 };
 
-
 function handleAxiosError(err: unknown): never {
   if (axios.isAxiosError(err)) {
     if (err.response) {
-      console.error('Request failed:', err.response.status, err.response.statusText);
+      console.error(
+        "Request failed:",
+        err.response.status,
+        err.response.statusText
+      );
+
+      console.error("Backend message:", err.response.data?.message);
+      console.error("Full response:", err.response.data);
+
     } else if (err.request) {
-      console.error('Network error: no response from server');
+      console.error("Network error: no response from server");
     } else {
-      console.error('Request setup error:', err.message);
+      console.error("Request setup error:", err.message);
     }
   } else {
-    console.error('Unexpected error', err);
+    console.error("Unexpected error", err);
   }
+
   throw err;
 }
 
@@ -232,7 +465,7 @@ export const analyzeTeam = async (teamId: string): Promise<AnalyzeTeamResponse> 
 
 export const createMarker = async (marker: CreateMarkerRequest): Promise<Marker> => {
   try {
-    const res = await axios.post(`${BASE_URL}/api/create-marker`, marker);
+    const res = await api.post(`${BASE_URL}/api/create-marker`, marker);
     console.log('[createMarker] success:', res.data);
     return res.data;
   } catch (err) {
@@ -258,3 +491,288 @@ export const deleteMarker = async (markerId: string): Promise<void> => {
     return handleAxiosError(err);
   }
 };
+
+export const createVenue = async (
+  venue: CreateVenueRequest
+): Promise<Venue> => {
+  try {
+    const res = await api.post(`/api/venue/create`, venue);
+
+    console.log('[createVenue] success:', res.data);
+
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const getVenues = async (): Promise<Venue[]> => {
+  try {
+    const res = await api.get("/api/venue");
+
+    console.log("[getVenues] success:", res.data);
+
+    return res.data;
+  } catch (err) {
+    throw handleAxiosError(err);
+  }
+};
+
+export const fetchTeamsAtVenue = async (venueID: string): Promise<Team[]> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/venue/teams`, {
+      data: { venueID },
+    });
+    console.log('[fetchTeamsAtVenue] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const createCourt = async (
+  data: CreateCourtRequest
+): Promise<CreateCourtResponse> => {
+  try {
+    const res = await api.post(`/api/venue/court/create`, data);
+    console.log('[createCourt] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const fetchCourts = async (venueID: string): Promise<any[]> => {
+  console.log('fetchCourts venueID:', venueID); // ← add this
+  try {
+    const res = await axios.get(`${BASE_URL}/api/venue/court/courts`, {
+      params: { venueID },
+    });
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+}
+
+export const fetchQueue = async (courtID: string): Promise<HydratedQueueEntry[]> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/venue/court/${courtID}/match/queue`);
+    console.log('[fetchQueue] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const joinQueue = async (courtID: string, token?: string) => {
+  console.log('[joinQueue] courtID:', courtID, 'token:', token ? 'exists' : 'MISSING');
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/queue/join`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const deleteCourt = async (
+  courtID: string
+): Promise<{
+  message: string;
+  courtID: string;
+}> => {
+  try {
+    const res = await api.delete(`/api/venue/court/${courtID}`);
+    // interceptor handles auth
+    console.log("[deleteCourt] success:", res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const leaveQueue = async (
+  courtID: string,
+  token: string
+): Promise<LeaveQueueResponse> => {
+  const url = `${BASE_URL}/api/venue/court/${courtID}/match/queue/leave`;
+  console.log('[leaveQueue] calling:', url);
+  try {
+    const res = await axios.put(
+      url,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const advanceQueue = async (courtID: string, token: string): Promise<{
+  message: string;
+  removed_teamID?: string;
+}> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/queue/advance`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[advanceQueue] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+
+export const startMatch = async (courtID: string): Promise<string> => {
+  try {
+    const res = await api.put(
+      `/api/venue/court/${courtID}/match/start`,
+    );
+    console.log('[startMatch] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const endMatch = async (courtID: string, token: string): Promise<string> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/end`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[endMatch] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const submitMatch = async (match: CreateMatchRequest): Promise<Match> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/submit-match`, match);
+    console.log('[submitMatch] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const fetchTeamMatches = async (teamId: string): Promise<TeamMatchRecord[]> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/teams/${teamId}/matches`);
+    console.log('[fetchTeamMatches] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const fetchMatch = async (matchId: string): Promise<Match> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/matches/${matchId}`);
+    console.log('[fetchMatch] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const rotateQueue = async (courtId: string): Promise<QueueEntry[]> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/courts/${courtId}/queue/rotate`);
+    console.log('[rotateQueue] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const fetchUserSettings = async (token: string): Promise<UserSettings> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/api/user/settings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('[fetchUserSettings] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const updateSkillLevel = async (
+  skill_level: SkillLevel,
+  token: string
+): Promise<UpdateSkillResponse> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/user/settings/skill`,
+      { skill_level },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[updateSkillLevel] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const updateScore = async (
+  courtID: string,
+  teamID: string,
+  points: number,
+  token: string
+): Promise<UpdateScoreResponse> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/score`,
+      { teamID, points },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[updateScore] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const predictMatchWinner = async (
+  data: MatchPredictionRequest
+): Promise<MatchPredictionResponse> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/match/predict`, data);
+    console.log('[predictMatchWinner] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const safeLeaveTeam = async (teamID: string, courtID?: string | null) => {
+  if (courtID) {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) await leaveQueue(courtID, token).catch(() => {});
+  }
+  return leaveTeam(teamID);
+};
+
+// I can use a snapshot listener
+// export const getVenueByID = async (): Promise<Venue[]> => {
+//   try {
+//     const res = await api.get("/api/venue");
+
+//     console.log("[getVenues] success:", res.data);
+
+//     return res.data;
+//   } catch (err) {
+//     throw handleAxiosError(err);
+//   }
+// };

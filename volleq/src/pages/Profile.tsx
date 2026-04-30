@@ -1,17 +1,19 @@
-import { useState, useRef, JSX } from "react";
+import { useState, useRef, JSX, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import { useUserStore } from "../store/user.ts";
-import { doUpdateEmail, reauthenticateUser } from "../firebase/auth.ts";
-import { updateUser } from "../api/api.ts";
+import { useUserStore, useUserSync } from "../store/user";
+import { doUpdateEmail, reauthenticateUser } from "../firebase/auth";
+import { updateUser as updateApiUser } from "../api/api"; // Aliased to avoid collision with store action
 import { useNavigate } from "react-router-dom";
-import { useLoadUser } from "../hooks/useLoadUser.tsx";
-import { useEffect } from "react";
-import { useUserSync } from "../store/user.ts";
+import { useLoadUser } from "../hooks/useLoadUser";
+
+
 
 function Profile(): JSX.Element {
-  useUserSync(); // listens for any user changes and updates the state. 
+  // Real-time synchronization for the user state
+  useUserSync(); 
 
   const currentUser = useUserStore((state) => state.user);
+  const updateStoreUser = useUserStore((state) => state.updateUser); // Access store action
   const { loadUser } = useLoadUser();
   const navigate = useNavigate();
 
@@ -22,6 +24,7 @@ function Profile(): JSX.Element {
   const [skillLevel, setSkillLevel] = useState("Intermediate");
   const [profilePic, setProfilePic] = useState(currentUser?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name}`);
   const [bannerPic, setBannerPic] = useState("");
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   const [privacy, setPrivacy] = useState({
     showLocation: true,
@@ -37,22 +40,43 @@ function Profile(): JSX.Element {
   const [winrate, setWinrate] = useState(0);
   const [games_played, setGames_played] = useState(0);
 
-useEffect(() => { // calculating the stats
-  if (currentUser && currentUser.stats.games_played > 0) {
-    setWinrate((currentUser.stats.wins / currentUser.stats.games_played) * 100);
-    setGames_played(currentUser.stats.games_played)
-  }
-}, [currentUser]);
+  // Sync state with store on load or when store changes
+  useEffect(() => {
+    if (currentUser) {
+      setName(currentUser.name);
+      setEmail(currentUser.email);
+      setProfilePic(currentUser.avatarUrl);
+    }
+  }, [currentUser]);
+
+  // Statistics calculation with safety check to prevent crashes
+  useEffect(() => {
+    if (currentUser?.stats && currentUser.stats.games_played > 0) {
+      const calculatedWinrate = (currentUser.stats.wins / currentUser.stats.games_played) * 100;
+      setWinrate(Number(calculatedWinrate.toFixed(1)));
+      setGames_played(currentUser.stats.games_played);
+    } else {
+      setWinrate(0);
+      setGames_played(currentUser?.stats?.games_played || 0);
+    }
+  }, [currentUser]);
 
   const initialEmail = currentUser?.email || "christine@email.com";
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setProfilePic(url);
+      // create a FileReader to convert the file to a permanent string
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // set the local state to the permanent string
+        setProfilePic(base64String);
+      };
+
+      reader.readAsDataURL(file);
     }
   };
 
@@ -64,32 +88,47 @@ useEffect(() => { // calculating the stats
 
   // --- CORE LOGIC ---
   const updateProfile = async () => {
-    const settings = { name, email };
-    console.log(`${settings.email} vs ${initialEmail}`);
+    // Include profilePic (avatarUrl) to ensure the handshake updates all parts of the UI
+    const settings = { 
+      name, 
+      email, 
+      avatarUrl: profilePic  // change here
+    };
 
     if (settings.email !== initialEmail) {
       setPendingEmail(email);
       setShowPasswordModal(true);
-      return; // wait for password confirmation
+      return; 
     }
 
-    console.log(`current settings are: ${JSON.stringify(settings, null, 2)}`);
-    await updateUser(settings);
-    // await loadUser(); will the listener automatically update the frontend instead of using this function?
-    setIsEditModalOpen(false);
-    navigate("/home");
+    try {
+      // 1. Update backend DB
+      await updateApiUser(settings);
+      
+      // 2. Update global Zustand store (triggers Navbar update immediately)
+      updateStoreUser({
+        name: settings.name,
+        email: settings.email,
+        avatarUrl: settings.avatarUrl
+      });
+
+      setIsEditModalOpen(false);
+      navigate("/home");
+    } catch (err) {
+      console.error("Profile update error:", err);
+    }
   };
 
   const handlePasswordSubmit = async () => {
     try {
-      // Reauthenticate first
       await reauthenticateUser(password);
-
-      // Update email in Firebase Auth
       await doUpdateEmail(pendingEmail.trim());
+      
+      const updateData = { email: pendingEmail, avatarUrl: profilePic, name };
+      await updateApiUser(updateData);
 
-      // Update DB as well
-      await updateUser({ email: pendingEmail });
+      // Sync with global store
+      updateStoreUser(updateData);
 
       await loadUser();
       setShowPasswordModal(false);
@@ -101,6 +140,7 @@ useEffect(() => { // calculating the stats
       alert("Incorrect password, please try again.");
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-[#e6d6a6] pb-12">
@@ -108,6 +148,7 @@ useEffect(() => { // calculating the stats
 
       <main className="flex-1 w-full max-w-4xl mx-auto mt-8 px-4">
         {/* --- MAIN PROFILE CARD --- */}
+
         <div className="relative bg-[#f5e7b2] rounded-3xl overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black">
           <div 
             className="h-32 bg-gradient-to-r from-orange-400 to-yellow-500 border-b-4 border-black"
@@ -172,22 +213,27 @@ useEffect(() => { // calculating the stats
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl font-black uppercase italic">Edit Player Profile</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-3xl font-black">×</button>
+            
             </div>
 
             <div className="grid gap-6">
-              {/* Photo */}
               <div className="flex gap-4">
                 <button onClick={() => fileInputRef.current?.click()} className="flex-1 p-3 border-2 border-black rounded-xl font-bold bg-gray-100 uppercase text-xs">Change Photo</button>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleImage} />
+                <button
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  className="p-3 border-2 border-black rounded-xl font-bold bg-gray-100 uppercase text-xs"
+                >
+                  Change Avatar
+                </button>
+
               </div>
 
-              {/* Name, Skill, Location */}
               <div className="text-left space-y-4">
                 <div>
                   <label className="block font-black uppercase text-xs mb-1">Display Name</label>
                   <input className="w-full p-3 border-2 border-black rounded-xl font-bold" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
-
                 <div>
                   <label className="block font-black uppercase text-xs mb-2">Skill Level</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -206,19 +252,16 @@ useEffect(() => { // calculating the stats
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <label className="block font-black uppercase text-xs mb-1">Location</label>
                   <input className="w-full p-3 border-2 border-black rounded-xl font-bold" value={location} onChange={(e) => setLocation(e.target.value)} />
                 </div>
-
                 <div>
                   <label className="block font-black uppercase text-xs mb-1">Email</label>
                   <input className="w-full p-3 border-2 border-black rounded-xl font-bold" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
               </div>
 
-              {/* PRIVACY SECTION */}
               <div className="bg-gray-100 p-6 rounded-2xl border-2 border-black text-left">
                 <h4 className="font-black uppercase text-sm mb-4">Privacy & Visibility</h4>
                 <div className="space-y-3">
@@ -247,28 +290,27 @@ useEffect(() => { // calculating the stats
         </div>
       )}
 
-      {/* --- PASSWORD MODAL --- */}
       {showPasswordModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
           <div className="bg-white p-6 rounded-xl shadow-lg w-80 flex flex-col gap-4">
-            <h2 className="text-xl font-semibold">Confirm Password</h2>
-            <p>Please enter your current password to change your email.</p>
+            <h2 className="text-xl font-semibold text-left">Confirm Password</h2>
+            <p className="text-sm text-left">Please enter your current password to change your email.</p>
             <input
               type="password"
-              className="border p-2 rounded-lg w-full"
+              className="border-2 border-black p-2 rounded-lg w-full"
               placeholder="Current password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <div className="flex justify-end gap-2">
               <button
-                className="px-4 py-2 border rounded bg-gray-300 hover:bg-gray-400"
+                className="px-4 py-2 border-2 border-black rounded font-bold bg-gray-300 hover:bg-gray-400"
                 onClick={() => setShowPasswordModal(false)}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 border rounded bg-yellow-300 hover:bg-yellow-400"
+                className="px-4 py-2 border-2 border-black rounded font-bold bg-yellow-300 hover:bg-yellow-400"
                 onClick={handlePasswordSubmit}
               >
                 Confirm
@@ -277,6 +319,51 @@ useEffect(() => { // calculating the stats
           </div>
         </div>
       )}
+      {isAvatarModalOpen && (
+  <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div className="bg-white border-4 border-black rounded-[30px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] w-full max-w-3xl p-6">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-black uppercase italic">
+          Choose Avatar
+        </h2>
+        <button
+          onClick={() => setIsAvatarModalOpen(false)}
+          className="text-3xl font-black"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* GRID */}
+      <div className="h-[400px] overflow-y-auto border-2 border-black p-3">
+        <div className="grid grid-cols-4 gap-4">
+          {Array.from({ length: 70 }).map((_, i) => {
+            const imgUrl = `https://i.pravatar.cc/300?img=${i + 1}`;
+
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  setProfilePic(imgUrl);
+                  setIsAvatarModalOpen(false);
+                }}
+                className="w-full aspect-square rounded-full border-4 border-black overflow-hidden hover:scale-105 transition-transform shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <img
+                  src={imgUrl}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 }

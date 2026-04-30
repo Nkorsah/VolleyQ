@@ -2,3 +2,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.circle-dots {
+  position: relative;
+  width: 160px;   /* matches "text-8xl-ish" size */
+  height: 160px;
+  animation: spinDots 40s linear infinite;
+}
+
+.dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 999px;
+  transform-origin: 0 0;
+}
+
+.dot-0  { transform: rotate(0deg) translate(70px); }
+.dot-1  { transform: rotate(30deg) translate(70px); }
+.dot-2  { transform: rotate(60deg) translate(70px); }
+.dot-3  { transform: rotate(90deg) translate(70px); }
+.dot-4  { transform: rotate(120deg) translate(70px); }
+.dot-5  { transform: rotate(150deg) translate(70px); }
+.dot-6  { transform: rotate(180deg) translate(70px); }
+.dot-7  { transform: rotate(210deg) translate(70px); }
+.dot-8  { transform: rotate(240deg) translate(70px); }
+.dot-9  { transform: rotate(270deg) translate(70px); }
+.dot-10 { transform: rotate(300deg) translate(70px); }
+.dot-11 { transform: rotate(330deg) translate(70px); }
+
+@keyframes spinDots {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
