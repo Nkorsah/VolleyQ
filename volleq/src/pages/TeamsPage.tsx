@@ -58,12 +58,12 @@ export default function TeamsPage({
 
   // if the user is not on a team, show them the create and join team menu
   useEffect(() => {
-    if (!user?.teamID) {
+    if (!user?.teamID || !currentTeam) {
       setView("choice");
     } else {
       setView("lobby");
     }
-  }, [user?.teamID]);
+  }, [user?.teamID, currentTeam]);
 
   // --- LIVE LISTENER: Watch for ALL teams online (Real-time List) ---
   // query to get all teams in the same venue

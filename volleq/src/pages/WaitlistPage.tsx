@@ -333,7 +333,7 @@ export default function WaitlistPage({
                     </div>
                     <div className="text-right">
                       <span className="text-5xl font-black block leading-none">
-                        {court.count + (isMyCourt ? 1 : 0)}
+                        {court.count}
                       </span>
                       <span className="text-[10px] font-bold uppercase leading-none opacity-60">In Queue</span>
                     </div>
@@ -564,7 +564,22 @@ export default function WaitlistPage({
           Currently Playing
         </h3>
 
-        {playingTeams.length >= 2 ? (
+        {match?.ongoing && team1 && team2 ? (
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+              <span className="text-xs font-black uppercase text-black/50 block mb-1">Side A</span>
+              <span className="text-2xl font-black uppercase text-black tracking-widest">
+                {team1.team_name}
+              </span>
+            </div>
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+              <span className="text-xs font-black uppercase text-black/50 block mb-1">Side B</span>
+              <span className="text-2xl font-black uppercase text-black tracking-widest">
+                {team2.team_name}
+              </span>
+            </div>
+          </div>
+        ) : playingTeams.length >= 1 ? (
           <div className="grid grid-cols-2 gap-4 w-full">
             {playingTeams.slice(0, 2).map((entry, i) => (
               <div key={entry.teamID} className="bg-yellow-400 border-4 border-black p-6 text-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">

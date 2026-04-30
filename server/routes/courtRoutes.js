@@ -269,9 +269,9 @@ const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the cur
   // ⚡ Fetch teams in parallel
   // fetch both teams and if the second team is does not exist, set team 2 to null
   const [team1, team2] = await Promise.all([
-    getTeam(team1ID),                   
-     team2ID ? getTeam(team2ID) : null,
-  ]);
+  getTeam(team1ID),                        
+  team2ID ? getTeam(team2ID) : null, 
+]);
 
   // ✅ TEAM 1
   updateData.team1 = {
@@ -638,7 +638,6 @@ router.put('/:courtID/match/start', async (req, res) => {
   const { courtID } = req.params;
 
   try {
-    // 1️⃣ Get queue
     const team_queue = await getQueue(courtID);
 
     if (team_queue.length < 2) {
@@ -647,44 +646,31 @@ router.put('/:courtID/match/start', async (req, res) => {
       });
     }
 
-    // 2️⃣ Get match
     const match = await getMatch(courtID);
 
     if (match.ongoing) {
-      return res.status(200).json({
-        message: "Match has already started!"
-      });
+      return res.status(200).json({ message: "Match has already started!" });
     }
 
-    // 3️⃣ Pick first 2 teams
-    const team1ID = team_queue[0];
-    const team2ID = team_queue[1];
+    const getTeamID = (entry) => typeof entry === 'string' ? entry : entry.teamID;
 
-    // 4️⃣ Fetch both teams (parallel 🔥)
+    const team1ID = getTeamID(team_queue[0]);
+    const team2ID = getTeamID(team_queue[1]);
+
     const [team1, team2] = await Promise.all([
       getTeam(team1ID),
       getTeam(team2ID)
     ]);
 
-    // 5️⃣ Update match
     const matchRef = db.collection("matches").doc(match.matchID);
 
     await matchRef.update({
       ongoing: true,
-      team1: {
-        teamID: team1.teamID,
-        team_name: team1.team_name,
-        team_score: 0
-      },
-      team2: {
-        teamID: team2.teamID,
-        team_name: team2.team_name,
-        team_score: 0
-      },
+      team1: { teamID: team1.teamID, team_name: team1.team_name, team_score: 0 },
+      team2: { teamID: team2.teamID, team_name: team2.team_name, team_score: 0 },
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 6️⃣ Update BOTH teams → now playing
     const team1Ref = db.collection("teams").doc(team1ID);
     const team2Ref = db.collection("teams").doc(team2ID);
 
@@ -701,10 +687,17 @@ router.put('/:courtID/match/start', async (req, res) => {
       })
     ]);
 
-    // 7️⃣ Remove both teams from queue
-    await db.collection("queues").doc(match.queueID).update({
-      team_queue: team_queue.slice(2)
-    });
+    // ✅ fetch queue type before deciding what to do
+    const queueDoc = await getQueueDoc(courtID);
+    const queue_type = queueDoc.queue_type;
+
+    if (queue_type !== 'CIRCULAR') {
+      // FIFO / PRIORITY: remove playing teams from queue
+      await db.collection("queues").doc(match.queueID).update({
+        team_queue: team_queue.slice(2)
+      });
+    }
+    // CIRCULAR: keep all teams in queue, advanceQueue will rotate them
 
     return res.status(200).json({
       message: "Match started!",
