@@ -17,7 +17,7 @@ interface TeamsPageProps {
 
 type TeamsView = "choice" | "create_settings" | "join_list" | "lobby";
 
-const MAX_PLAYERS = 6;
+
 
 export default function TeamsPage({
   onBack,
@@ -26,9 +26,15 @@ export default function TeamsPage({
   useUserSync();
 
 
-
+  
   const { venueID } = useParams();
 
+  // Zustand Store Integration
+  const user = useUserStore((state) => state.user);
+  const updateUser = useUserStore((state) => state.updateUser);
+  const { currentTeam, resetTeam, subscribeToTeam } = useTeamStore();
+
+// const [maxPlayers, setMaxPlayers] = 6;
   const [view, setView] = useState<TeamsView>("choice");
   const [openTeams, setOpenTeams] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,12 +43,8 @@ export default function TeamsPage({
   const [newTeamName, setNewTeamName] = useState("Team B");
   const [teamColor, setTeamColor] = useState("#60a5fa"); // default blue
   const [isPrivate, setIsPrivate] = useState(false);
-  const [maxPlayers, setMaxPlayers] = useState(5);
+  const [maxPlayers, setMaxPlayers] = useState(currentTeam?.team_settings?.number_of_players || 5);
 
-  // Zustand Store Integration
-  const user = useUserStore((state) => state.user);
-  const updateUser = useUserStore((state) => state.updateUser);
-  const { currentTeam, resetTeam, subscribeToTeam } = useTeamStore();
 
   const auth = getAuth();
   // Using ownerId to match the Team type in types.d.ts
@@ -64,6 +66,11 @@ export default function TeamsPage({
       setView("lobby");
     }
   }, [user?.teamID, currentTeam]);
+
+  useEffect(() => {
+    console.log('length', maxPlayers - (currentTeam?.members?.length || 0))
+    console.log("current team:", currentTeam)
+  }, [currentTeam])
 
   // --- LIVE LISTENER: Watch for ALL teams online (Real-time List) ---
   // query to get all teams in the same venue
@@ -254,9 +261,9 @@ export default function TeamsPage({
           <div className="flex justify-between items-center bg-[#60a5fa] border-2 border-black p-4">
             <span className="font-bold uppercase text-xs tracking-widest text-blue-900">Max Players</span>
             <div className="flex items-center gap-4">
-              <button onClick={() => setMaxPlayers(Math.max(1, maxPlayers - 1))} className="w-8 h-8 bg-white border-2 border-black font-black hover:bg-gray-100">-</button>
+              <button onClick={() => setMaxPlayers(Math.max(2, maxPlayers - 1))} className="w-8 h-8 bg-white border-2 border-black font-black hover:bg-gray-100">-</button>
               <span className="font-black text-lg w-4 text-center">{maxPlayers}</span>
-              <button onClick={() => setMaxPlayers(Math.min(20, maxPlayers + 1))} className="w-8 h-8 bg-white border-2 border-black font-black hover:bg-gray-100">+</button>
+              <button onClick={() => setMaxPlayers(Math.min(9, maxPlayers + 1))} className="w-8 h-8 bg-white border-2 border-black font-black hover:bg-gray-100">+</button>
             </div>
           </div>
           <div className="flex justify-between items-center bg-[#60a5fa] border-2 border-black p-4">
@@ -316,10 +323,10 @@ export default function TeamsPage({
   return (
     <div className="w-full bg-[#60a5fa] border-4 border-black p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative mt-12 text-black max-w-4xl mx-auto">
       <button
-        onClick={handleLeaveTeam}
+        onClick={onBack}
         className="absolute top-4 left-4 text-sm font-bold text-blue-900 hover:underline"
       >
-        ← Leave Team
+        ← Back to Lobby
       </button>
 
       <div className="flex justify-between items-start mb-12 mt-4">
@@ -363,7 +370,8 @@ export default function TeamsPage({
 
         {/* Dynamic Empty Slots based on member length */}
         {Array.from({
-          length: MAX_PLAYERS - (currentTeam?.members?.length || 0),
+          length: maxPlayers - (currentTeam?.members?.length || 0),
+          
         }).map((_, i) => (
           <div key={`empty-${i}`} className="flex flex-col items-center">
             <div className="w-24 h-24 rounded-full border-4 border-dashed border-black bg-gray-100/30 mb-2 flex items-center justify-center">
@@ -376,13 +384,22 @@ export default function TeamsPage({
         ))}
       </div>
 
-      <div className="absolute bottom-[-24px] left-1/2 -translate-x-1/2">
-        <button
-          onClick={onViewWaitlist}
-          className="bg-[#f7e49a] border-2 border-black px-12 py-3 font-black text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 active:shadow-none transition-all uppercase"
-        >
-          {isHost ? "Select Court" : "View Waitlist"}
-        </button>
+      <div className="absolute bottom-[-24px] left-1/2 -translate-x-1/2 flex gap-6">
+          {/* LEFT: Leave Team */}
+          <button
+            onClick={handleLeaveTeam}
+            className="bg-red-500 border-2 border-black px-12 py-3 font-black text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 active:shadow-none transition-all uppercase text-white whitespace-nowrap"
+          >
+            Leave Team
+          </button>
+
+          {/* RIGHT: Select/View Court */}
+          <button
+            onClick={onViewWaitlist}
+            className="bg-[#f7e49a] border-2 border-black px-12 py-3 font-black text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 active:shadow-none transition-all uppercase whitespace-nowrap"
+          >
+            {isHost ? "Select Court" : "View Courts"}
+          </button>
       </div>
     </div>
   );

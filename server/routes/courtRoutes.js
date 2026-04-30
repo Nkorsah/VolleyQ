@@ -1128,7 +1128,7 @@ router.delete('/:courtID', async (req, res) => {
 
     // 4️⃣ remove court from user (important cleanup)
     await db.collection('users').doc(court_hostID).update({
-      hosted_courtID: admin.firestore.FieldValue.delete(),
+      hosted_courtID: null,
     });
 
     console.log(`Court ${courtID} deleted successfully`);

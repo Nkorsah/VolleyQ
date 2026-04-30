@@ -147,6 +147,7 @@ router.post('/create-team', async (req, res) => { // A player makes this request
         if (!updatedUser) {
           return res.status(400).json({ message: "No valid fields to update" });
         }
+
     console.log("User updated with teamID:", updatedUser);
     // await db.collection('users').doc(userID).set({ current_teamID: team.teamID }, { merge: true });
 
@@ -335,7 +336,8 @@ if (isAlreadyMember) {
 // use zod for type verification
 router.delete("/leave-team/:teamID", async (req, res) => {
   const { teamID } = req.params;
-
+   console.log("🔥 BACKEND leave-team HIT", req.params.teamID);
+  console.log('leaving team!')
   try {
     const userID = await getUserID(req.headers.authorization);
 

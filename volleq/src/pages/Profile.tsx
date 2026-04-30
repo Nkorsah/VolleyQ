@@ -6,6 +6,8 @@ import { updateUser as updateApiUser } from "../api/api"; // Aliased to avoid co
 import { useNavigate } from "react-router-dom";
 import { useLoadUser } from "../hooks/useLoadUser";
 
+
+
 function Profile(): JSX.Element {
   // Real-time synchronization for the user state
   useUserSync(); 
@@ -22,6 +24,7 @@ function Profile(): JSX.Element {
   const [skillLevel, setSkillLevel] = useState("Intermediate");
   const [profilePic, setProfilePic] = useState(currentUser?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name}`);
   const [bannerPic, setBannerPic] = useState("");
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   const [privacy, setPrivacy] = useState({
     showLocation: true,
@@ -137,6 +140,7 @@ function Profile(): JSX.Element {
       alert("Incorrect password, please try again.");
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-[#e6d6a6] pb-12">
@@ -144,6 +148,7 @@ function Profile(): JSX.Element {
 
       <main className="flex-1 w-full max-w-4xl mx-auto mt-8 px-4">
         {/* --- MAIN PROFILE CARD --- */}
+
         <div className="relative bg-[#f5e7b2] rounded-3xl overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black">
           <div 
             className="h-32 bg-gradient-to-r from-orange-400 to-yellow-500 border-b-4 border-black"
@@ -208,12 +213,20 @@ function Profile(): JSX.Element {
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl font-black uppercase italic">Edit Player Profile</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-3xl font-black">×</button>
+            
             </div>
 
             <div className="grid gap-6">
               <div className="flex gap-4">
                 <button onClick={() => fileInputRef.current?.click()} className="flex-1 p-3 border-2 border-black rounded-xl font-bold bg-gray-100 uppercase text-xs">Change Photo</button>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleImage} />
+                <button
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  className="p-3 border-2 border-black rounded-xl font-bold bg-gray-100 uppercase text-xs"
+                >
+                  Change Avatar
+                </button>
+
               </div>
 
               <div className="text-left space-y-4">
@@ -306,6 +319,51 @@ function Profile(): JSX.Element {
           </div>
         </div>
       )}
+      {isAvatarModalOpen && (
+  <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div className="bg-white border-4 border-black rounded-[30px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] w-full max-w-3xl p-6">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-black uppercase italic">
+          Choose Avatar
+        </h2>
+        <button
+          onClick={() => setIsAvatarModalOpen(false)}
+          className="text-3xl font-black"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* GRID */}
+      <div className="h-[400px] overflow-y-auto border-2 border-black p-3">
+        <div className="grid grid-cols-4 gap-4">
+          {Array.from({ length: 70 }).map((_, i) => {
+            const imgUrl = `https://i.pravatar.cc/300?img=${i + 1}`;
+
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  setProfilePic(imgUrl);
+                  setIsAvatarModalOpen(false);
+                }}
+                className="w-full aspect-square rounded-full border-4 border-black overflow-hidden hover:scale-105 transition-transform shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <img
+                  src={imgUrl}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 }

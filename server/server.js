@@ -25,13 +25,13 @@ app.use(cors({ origin: '*', credentials: true, optionSuccessStatus: 200 }));
 // Add a new document in collection "cities" with ID 'LA'
 // const res = await db.collection('cities').doc('LA').set(data);
 // Example request. 
-try {
-  await db.collection('cities').doc('LA').set(data);
+// try {
+//   await db.collection('cities').doc('LA').set(data);
 
-  console.log('success')
-} catch (error) {
-  console.error('Error', error)
-}
+//   console.log('success')
+// } catch (error) {
+//   console.error('Error', error)
+// }
 
 // creating a document
 // await db.collection('cities').doc('new-city-id').set(data);
@@ -103,9 +103,9 @@ const HOST = process.env.HOST || 'localhost';
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running at: http://${HOST}:${PORT}`);
 
-  if (app._router) {
+  if (app.router) {
     console.log('\n Registered routes:');
-    app._router.stack.forEach(middleware => {
+    app.router.stack.forEach(middleware => {
       if (middleware.route) {
         console.log(Object.keys(middleware.route.methods)[0].toUpperCase(), middleware.route.path);
       } else if (middleware.name === 'router') {

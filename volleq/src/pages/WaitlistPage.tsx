@@ -206,7 +206,7 @@ export default function WaitlistPage({
     setError(null);
     try {
       const token = await getToken();
-      await startMatch(selectedCourtObj.courtID, token);
+      await startMatch(selectedCourtObj.courtID);
     } catch (err: any) {
       setError(err.message || 'Failed to start match');
     } finally {

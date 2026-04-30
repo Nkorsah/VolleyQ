@@ -362,6 +362,8 @@ export const joinTeam = async (teamId: string): Promise<Team> => {
 
 export const leaveTeam = async (teamId: string): Promise<Team> => {
   try {
+    console.log("🚨 leaveTeam CALLED with:", teamId);
+
     const res = await api.delete(`/api/team/leave-team/${teamId}`);
     console.log('[leaveTeam] success:', res.data);
     return res.data;
@@ -628,12 +630,10 @@ export const advanceQueue = async (courtID: string, token: string): Promise<{
 };
 
 
-export const startMatch = async (courtID: string, token: string): Promise<string> => {
+export const startMatch = async (courtID: string): Promise<string> => {
   try {
-    const res = await axios.put(
-      `${BASE_URL}/api/venue/court/${courtID}/match/start`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
+    const res = await api.put(
+      `/api/venue/court/${courtID}/match/start`,
     );
     console.log('[startMatch] success:', res.data);
     return res.data;
