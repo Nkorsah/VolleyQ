@@ -62,10 +62,18 @@ function Profile(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setProfilePic(url);
+      // create a FileReader to convert the file to a permanent string
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // set the local state to the permanent string
+        setProfilePic(base64String);
+      };
+
+      reader.readAsDataURL(file);
     }
   };
 
@@ -81,7 +89,7 @@ function Profile(): JSX.Element {
     const settings = { 
       name, 
       email, 
-      avatarUrl: profilePic 
+      avatarUrl: profilePic  // change here
     };
 
     if (settings.email !== initialEmail) {
