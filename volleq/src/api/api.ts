@@ -109,6 +109,8 @@ export type Queue = {
 export type HydratedQueueEntry = {
   teamID: string;
   name: string;
+  position: number;
+  status: QueueStatus;
 };
 
 export type CreateCourtRequest = {
@@ -119,7 +121,11 @@ export type CreateCourtRequest = {
   venueID: string;
 };
 
-
+export type UpdateScoreResponse = {
+  message: string;
+  team1_score: number;
+  team2_score: number;
+};
 
 export type CreateCourtResponse = {
   court: Court;
@@ -170,6 +176,28 @@ export type TeamMatchRecord = {
   playedAt: string;
 };
 
+export type MatchPredictionRequest = {
+  courtID: string;
+  team1: {
+    teamID: string;
+    team_name: string;
+    team_score: number;
+    skill_level?: string;
+  };
+  team2: {
+    teamID: string;
+    team_name: string;
+    team_score: number;
+    skill_level?: string;
+  };
+  score_limit: number;
+};
+
+export type MatchPredictionResponse = {
+  prediction: string;
+};
+
+
 
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
 
@@ -191,6 +219,11 @@ export type AdvanceQueueResponse = {
   team1?: { teamID: string; skill_level: SkillLevel };
   team2?: { teamID: string; skill_level: SkillLevel };
   same_skill_level?: boolean;
+};
+
+export type LeaveQueueResponse = {
+  message: string;
+  team_queue: string[];
 };
 
 export type UserSettings = {
@@ -248,6 +281,7 @@ export const createUser = async (newUser: CreateUserRequest): Promise<User> => {
     throw handleAxiosError(err);
   }
 };
+
 
 
 
@@ -506,6 +540,18 @@ export const createCourt = async (
   }
 };
 
+export const fetchCourts = async (venueID: string): Promise<any[]> => {
+  console.log('fetchCourts venueID:', venueID); // ← add this
+  try {
+    const res = await axios.get(`${BASE_URL}/api/venue/court/courts`, {
+      params: { venueID },
+    });
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+}
+
 export const fetchQueue = async (courtID: string): Promise<HydratedQueueEntry[]> => {
   try {
     const res = await axios.get(`${BASE_URL}/api/venue/court/${courtID}/match/queue`);
@@ -517,7 +563,8 @@ export const fetchQueue = async (courtID: string): Promise<HydratedQueueEntry[]>
 };
 
 export const joinQueue = async (
-  courtID: string
+  courtID: string,
+  token: string
 ): Promise<{
   message: string;
   team: any;
@@ -549,20 +596,23 @@ export const deleteCourt = async (
   }
 };
 
-/*export const leaveQueue = async (courtID: string, token: string): Promise<{
-  message: string;
-  team: string;
-  team_queue: string[];
-}> => {
-  
+export const leaveQueue = async (
+  courtID: string,
+  token: string
+): Promise<LeaveQueueResponse> => {
+  const url = `${BASE_URL}/api/venue/court/${courtID}/match/queue/leave`;
+  console.log('[leaveQueue] calling:', url);
   try {
-    const res = await axios.delete(`${BASE_URL}/api/courts/${courtID}/queue/${token}`);
-    console.log('[leaveQueue] success:', res.data);
+    const res = await axios.put(
+      url,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
     return res.data;
   } catch (err) {
     return handleAxiosError(err);
   }
-}; */
+};
 
 export const advanceQueue = async (courtID: string, token: string): Promise<{
   message: string;
@@ -677,6 +727,45 @@ export const updateSkillLevel = async (
   } catch (err) {
     return handleAxiosError(err);
   }
+};
+
+export const updateScore = async (
+  courtID: string,
+  teamID: string,
+  points: number,
+  token: string
+): Promise<UpdateScoreResponse> => {
+  try {
+    const res = await axios.put(
+      `${BASE_URL}/api/venue/court/${courtID}/match/score`,
+      { teamID, points },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    console.log('[updateScore] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const predictMatchWinner = async (
+  data: MatchPredictionRequest
+): Promise<MatchPredictionResponse> => {
+  try {
+    const res = await axios.post(`${BASE_URL}/api/match/predict`, data);
+    console.log('[predictMatchWinner] success:', res.data);
+    return res.data;
+  } catch (err) {
+    return handleAxiosError(err);
+  }
+};
+
+export const safeLeaveTeam = async (teamID: string, courtID?: string | null) => {
+  if (courtID) {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) await leaveQueue(courtID, token).catch(() => {});
+  }
+  return leaveTeam(teamID);
 };
 
 // I can use a snapshot listener

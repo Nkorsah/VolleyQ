@@ -146,30 +146,18 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
   const { courtID } = req.params;
 
   try {
-    // get userID
     const userID = await getUserID(req.headers.authorization);
-    console.log(`Court host userID: ${userID}`);
-
-    // get the user attribute that verifies that they're a team lead
     const user = await getUser(userID);
-    console.log(JSON.stringify(user))
 
-    // check if user is team leader or not
     if (!user.teamID) {
       return res.status(400).json({ message: 'User is not on a team' });
     }
-
     if (!user.team_leader) {
       return res.status(403).json({ message: 'User is not a team leader' });
     }
 
-    // grab teamID and verify if team exists
-    const teamID = user.teamID; // team id from user
-
-    console.log(JSON.stringify(user, null, 2));
-    console.log("teamID: ",teamID);
-
-    const team = await getTeam(teamID); // verifies if team exists
+    const teamID = user.teamID;
+    const team = await getTeam(teamID);
 
     // check if team is already in queue
     const currentQueue = await getQueue(courtID);
@@ -184,36 +172,38 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
       return res.status(409).json({ message: 'Queue is full' });
     }
 
-    // get match and queue
-    const match = await getMatch(courtID);
-    const queueID = match.queueID;
+    // ✅ get matchID and queueID directly from court doc
+    const { matchID, queueID } = court;
 
-    // add to queue and retreive the queue
-    await addTeamToQueue(courtID, queueID, teamID); // updates queue
+    // add to queue
+    await addTeamToQueue(courtID, queueID, teamID);
     const team_queue = await getQueue(courtID);
 
-    // once added to queue, set the current matchID for the team
+    // ✅ fix: declare teamRef and use matchID from court
+    const teamRef = db.collection('teams').doc(teamID);
     await teamRef.update({
       "match_status.status": "queued",
-      "match_status.current_matchID": matchID
+      "match_status.current_matchID": matchID,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-   // if a match has not happened yet, update the court with teams in queue
+    // update match with current teams if not ongoing
+    const match = await getMatch(courtID);
     if (!match.ongoing) {
-      await updateCurrentTeamsInMatch(courtID, match); // put in match object
+      await updateCurrentTeamsInMatch(courtID, match);
     }
 
     return res.status(200).json({
       message: 'Team Join success!',
       team: JSON.stringify(team),
-      team_queue: team_queue
-    })
+      team_queue
+    });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal Server Error. Cannot join queue' });
   }
-
-})
+});
 
 // router.put('/:courtID/match/queue/advance', async (req, res) => {
 //   console.log('match/queue/advance called!');
@@ -235,8 +225,8 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
 //   });
 
 //     // const updated = await queueDoc.get();
-//   } else { // this means that it is a priority queue 
-//     console.log('this is a priority queue. Do some logic here')
+//   } else { // this means that it is a PRIORITY QUEUE 
+//     console.log('this is a PRIORITY QUEUE. Do some logic here')
 //   }
 
 //   return team_queue;
@@ -263,10 +253,24 @@ const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the cur
     return;
   }
 
-  // fetch both teams from queue and if the second team is does not exist, set team 2 to null
+  const getTeamID = (entry) => {
+    if (typeof entry === 'string') return entry;
+    if (typeof entry === 'object' && entry?.teamID) return entry.teamID;
+    return null;
+  };
+
+  const team1ID = getTeamID(team_queue[0]);
+  const team2ID = team_queue[1] ? getTeamID(team_queue[1]) : null;
+
+  if (!team1ID) {
+    console.error('Could not extract team1ID from queue entry:', team_queue[0]);
+    return;
+  }
+  // ⚡ Fetch teams in parallel
+  // fetch both teams and if the second team is does not exist, set team 2 to null
   const [team1, team2] = await Promise.all([
-    getTeam(team_queue[0]),
-    team_queue[1] ? getTeam(team_queue[1]) : null, // if statement in one line
+    getTeam(team1ID),                   
+     team2ID ? getTeam(team2ID) : null,
   ]);
 
   // ✅ TEAM 1
@@ -418,10 +422,10 @@ router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is trig
         });
 
         const isSameSkill = team1_entry.skill_level === team2_entry.skill_level;
-        console.log(`Priority Queue: matched ${team1_entry.teamID}(${team1_entry.skill_level}) vs ${team2_entry.teamID}(${team2_entry.skill_level})`);
+        console.log(`PRIORITY QUEUE: matched ${team1_entry.teamID}(${team1_entry.skill_level}) vs ${team2_entry.teamID}(${team2_entry.skill_level})`);
 
         return res.status(200).json({
-          message: 'Priority Queue: next match found',
+          message: 'PRIORITY QUEUE: next match found',
           team1: { teamID: team1_entry.teamID, skill_level: team1_entry.skill_level },
           team2: { teamID: team2_entry.teamID, skill_level: team2_entry.skill_level },
           same_skill_level: isSameSkill,
@@ -437,11 +441,15 @@ router.put('/:courtID/match/queue/advance', async (req, res) =>{ // this is trig
 });
 
 router.put('/:courtID/match/queue/leave', async (req, res) => {
+  console.log('🚪 leave called');
   const { courtID } = req.params;
 
   try {
     const userID = await getUserID(req.headers.authorization);
+    console.log('1. userID:', userID);
+
     const user = await getUser(userID);
+    console.log('2. teamID:', user.teamID, 'team_leader:', user.team_leader);
 
     if (!user.teamID) {
       return res.status(400).json({ message: 'User is not on a team' });
@@ -455,9 +463,16 @@ router.put('/:courtID/match/queue/leave', async (req, res) => {
 
     // 🔥 Get queue + match
     const queueDoc = await getQueueDoc(courtID);
-    const { queueID, team_queue, queue_type } = queueDoc;
+    const queue_type = queueDoc.queue_type.toUpperCase();
+    const { queueID, team_queue } = queueDoc;
+
+    console.log('3. queue_type:', queue_type);
+    console.log('4. team_queue:', JSON.stringify(team_queue));
+    console.log('5. looking for teamID:', teamID);
+
 
     const match = await getMatch(courtID);
+    console.log('6. match ongoing:', match.ongoing);
 
     let updated_queue;
     let position;
@@ -465,13 +480,16 @@ router.put('/:courtID/match/queue/leave', async (req, res) => {
     // =========================
     // 🔵 PRIORITY QUEUE LOGIC
     // =========================
-    if (queue_type === 'Priority Queue') {
 
       // Find team entry
+    if (queue_type === 'PRIORITY QUEUE') {
       const entry = team_queue.find(e => e.teamID === teamID);
       if (!entry) {
         return res.status(404).json({ message: 'Team is not in the queue' });
       }
+      console.log('7. priority entry found:', entry);
+
+      if (!entry) return res.status(404).json({ message: 'Team is not in the queue' });
 
       // Find position
       position = team_queue.findIndex(e => e.teamID === teamID);
@@ -565,7 +583,7 @@ router.get('/:courtID/match/queue', async (req, res) => { // gets the current qu
       return res.status(200).json([]);
     }
 
-    if (queue_type === 'Priority Queue') {
+    if (queue_type === 'PRIORITY QUEUE') {
       const teamIDs = team_queue.map(e => e.teamID);
 
       const teams = await db.collection('teams')
@@ -925,7 +943,7 @@ async function addTeamToQueue(courtID, queueID, teamID) {
       queue_length: admin.firestore.FieldValue.increment(1),
     });
 
-  } else if (queue_type === 'Priority Queue') {
+  } else if (queue_type === 'PRIORITY QUEUE') {
     // fetch the team's skill level
     const team = await getTeam(teamID);
     const skill_level = team.skill_level ?? 'basic'; // default to basic if not set
@@ -943,7 +961,7 @@ async function addTeamToQueue(courtID, queueID, teamID) {
       queue_length: admin.firestore.FieldValue.increment(1),
     });
 
-    console.log(`Priority Queue: added team ${teamID} with skill ${skill_level}`);
+    console.log(`PRIORITY QUEUE: added team ${teamID} with skill ${skill_level}`);
   }
 }
 
@@ -1002,6 +1020,29 @@ const getMatch = async (courtID) => {
   return matchRef.data();
 };
 
+router.get('/courts', async (req, res) => {
+  console.log('/api/venue/court/courts called...');
+  const { venueID } = req.query;
+
+  if (!venueID) {
+    return res.status(400).json({ message: 'venueID is required' });
+  }
+
+  try {
+    const snap = await db.collection('courts')
+      .where('venueID', '==', venueID)
+      .get();
+
+    const courts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log(`Found ${courts.length} courts for venue ${venueID}`);
+    return res.status(200).json(courts);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
 const getCourt = async (courtID) => { // don't really need this function
 
   const courtRef = await db.collection('courts').doc(courtID).get();
@@ -1013,7 +1054,7 @@ const getCourt = async (courtID) => { // don't really need this function
   return courtRef.data();
 }
 
-//priority queue shit
+//PRIORITY QUEUE shit
 
 //skill level map
 

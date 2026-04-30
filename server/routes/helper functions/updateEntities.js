@@ -289,6 +289,8 @@ export const matchSchema = {
 
   team1: "object",
   team2: "object",
+  winnerID: "string",
+  loserID: "string",
 
   createdAt: "object",
 };
@@ -341,7 +343,7 @@ const updateCourtMatchSummary = async (courtID, matchData) => {
   await courtRef.update({
     match_summary: {
       team1_name: matchData.team1?.team_name || null,
-      team2_name: matchData.team2.team_name || null,
+      team2_name: matchData.team2?.team_name ?? null,
       ongoing: matchData.ongoing ?? false,
     },
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),

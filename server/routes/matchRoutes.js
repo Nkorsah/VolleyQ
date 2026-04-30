@@ -1,6 +1,7 @@
 import express from 'express';
 import { db } from '../firebase.js';
 import admin from 'firebase-admin';
+import gemini from '../gemini.js';
 
 const router = express.Router();
 
@@ -131,6 +132,53 @@ router.get('/matches/:matchId', async (req, res) => {
       return res.status(404).json({ message: 'Match not found' });
     }
     res.status(200).json({ id: snap.id, ...snap.data() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
+router.post('/predict', async (req, res) => {
+  console.log('/api/match/predict called...');
+  try {
+    const { team1, team2, score_limit } = req.body;
+
+    if (!team1 || !team2 || !score_limit) {
+      return res.status(400).json({ message: 'team1, team2 and score_limit are required' });
+    }
+
+    const team1_progress = ((team1.team_score / score_limit) * 100).toFixed(1);
+    const team2_progress = ((team2.team_score / score_limit) * 100).toFixed(1);
+    const score_diff = Math.abs(team1.team_score - team2.team_score);
+    const points_remaining = score_limit - Math.max(team1.team_score, team2.team_score);
+
+    const prompt = `
+      You are a volleyball match analyst. Analyze this live match and predict the winner.
+
+      Match Status:
+      - ${team1.team_name}: ${team1.team_score} points (${team1_progress}% to win)${team1.skill_level ? `, skill: ${team1.skill_level}` : ''}
+      - ${team2.team_name}: ${team2.team_score} points (${team2_progress}% to win)${team2.skill_level ? `, skill: ${team2.skill_level}` : ''}
+      - Score limit: ${score_limit}
+      - Score difference: ${score_diff} points
+      - Points remaining for leader: ${points_remaining}
+
+      Respond in this exact JSON format with no extra text:
+      {
+        "predicted_winner": "<team name>",
+        "confidence": "<low|medium|high>",
+        "reasoning": "<1-2 sentence explanation>"
+      }
+    `;
+
+    const result = await gemini.model.generateContent(prompt);
+    const raw = result.response.text();
+
+    // Parse JSON from Gemini response
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    res.status(200).json({ prediction: parsed });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });

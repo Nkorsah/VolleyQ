@@ -259,6 +259,7 @@ useEffect(() => {
           <WaitlistPage 
             onBack={() => setActiveSubView("menu")} 
             isHost={isHost} 
+            venueID={venueID ?? ''}
           />
         )}
         {activeSubView === "host" && (

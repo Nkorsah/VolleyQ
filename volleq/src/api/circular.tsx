@@ -1,6 +1,6 @@
 import {
   joinQueue as joinQueueRequest,
-  //leaveQueue as leaveQueueRequest,
+  leaveQueue as leaveQueueRequest,
   fetchQueue,
   rotateQueue as rotateQueueRequest,
 } from './api';

@@ -1,41 +1,26 @@
-// const express = require('express')
-// const cors = require('cors')
-// const bodyParser = require('body-parser')
-
-// const admin = require('firebase-admin'); 
-// const credentials = require('./firebase-key.json');
-// import { configDotenv } from 'dotenv';
-
-// documentation: https://firebase.google.com/docs/firestore/manage-data/add-data#node.js
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-// import admin from 'firebase-admin';
-// import { getDatabase, ref, set } from "firebase/database";
-// import { doc, setDoc } from "firebase/firestore"; 
-
-import { initializeApp, applicationDefault, cert, getApps } from 'firebase-admin/app'
-import { getFirestore, Timestamp, FieldValue, Filter } from 'firebase-admin/firestore'
+import matchPredictRouter from './routes/matchRoutes.js';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import serviceAccount from './firebase-key.json' with { type: 'json' };
-
-const app = express()
 
 
 if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
+  initializeApp({ credential: cert(serviceAccount) });
 }
+
 const db = getFirestore();
 // admin.initializeApp({
 //     credential: admin.credential.cert(credentials)
 // })
-const data = {
-  name: 'Los Angeles',
-  state: 'CA',
-  country: 'USA'
-};
+const app = express();
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cors({ origin: '*', credentials: true, optionSuccessStatus: 200 }));
 
 // Add a new document in collection "cities" with ID 'LA'
 // const res = await db.collection('cities').doc('LA').set(data);
@@ -103,16 +88,39 @@ app.use('/api', userRoutes);
 app.use('/api', matchRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', aiRoutes);
-app.use('/api', markerRoutes); 
-app.use('/api/venue', venueRoutes); 
-app.use('/api/venue/court', courtRoutes)
+app.use('/api', markerRoutes);
+app.use('/api/venue', venueRoutes);
+app.use('/api/venue/court', courtRoutes);
+app.use('/api/match', matchPredictRouter);
 
-// When we deploy this server, we'll use process.env ...
+
+
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || 'localhost';
 
+
+
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Server running at: http://${HOST}:${PORT}`);
+  console.log(`🚀 Server running at: http://${HOST}:${PORT}`);
+
+  if (app._router) {
+    console.log('\n Registered routes:');
+    app._router.stack.forEach(middleware => {
+      if (middleware.route) {
+        console.log(Object.keys(middleware.route.methods)[0].toUpperCase(), middleware.route.path);
+      } else if (middleware.name === 'router') {
+        middleware.handle.stack.forEach(handler => {
+          if (handler.route) {
+            const method = Object.keys(handler.route.methods)[0].toUpperCase();
+            console.log(method, handler.route.path);
+          }
+        });
+      }
+    });
+  } else {
+    console.log(' app._router is undefined — routes may not have registered');
+    console.log('app keys:', Object.keys(app));
+  }
 });
 
 export default app;
