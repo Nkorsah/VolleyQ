@@ -26,23 +26,28 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const queueOptions = [
-    {
-      title: "FIFO",
-      description: "Join the standard line. You'll play in the exact order you signed up.",
-      icon: "⬛" 
-    },
-    {
-      title: "PRIORITY QUEUE",
-      description: "Get scheduled based on priority competitive level, ranking, or a special attribute when you play.",
-      icon: "🥞" 
-    },
-    {
-      title: "CIRCULAR QUEUE",
-      description: "Stay in rotation once you finish a game, you go back into the cycle and will play again when your turn comes around.",
-      icon: "🔄" 
-    }
-  ];
+ type QueueType = "FIFO" | "PRIORITY QUEUE" | "CIRCULAR";
+
+const queueOptions = [
+  {
+    type: "FIFO" as QueueType,
+    title: "FIFO",
+    description: "Join the standard line. You'll play in the exact order you signed up.",
+    icon: "⬛" 
+  },
+  {
+    type: "PRIORITY QUEUE" as QueueType,
+    title: "PRIORITY QUEUE",
+    description: "Get scheduled based on priority competitive level, ranking, or a special attribute when you play.",
+    icon: "🥞" 
+  },
+  {
+    type: "CIRCULAR" as QueueType,
+    title: "CIRCULAR QUEUE",  // display only
+    description: "Stay in rotation once you finish a game, you go back into the cycle and will play again when your turn comes around.",
+    icon: "🔄" 
+  }
+];
 
   // const handleNext = () => setCurrentIndex((prev) => (prev + 1) % queueOptions.length);
   // const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + queueOptions.length) % queueOptions.length);
@@ -65,26 +70,26 @@ export default function HostCourtPage({ onBack }: Props): JSX.Element {
   const currentQueue = queueOptions[currentIndex];
 
   const handleCreateCourt = async () => {
-    if (!venueID) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await createCourt({
-        court_name: courtName,
-        max_teams_in_queue: maxTeams,
-        queue_type: currentQueue.title as 'FIFO' | 'CIRCULAR' | 'PRIORITY QUEUE',
-        score_limit: scoreLimit,
-        venueID,
-      });
+  if (!venueID) return;
+  setLoading(true);
+  setError(null);
+  try {
+    await createCourt({
+      court_name: courtName,
+      max_teams_in_queue: maxTeams,
+      queue_type: currentQueue.type,
+      score_limit: scoreLimit,
+      venueID,
+    });
 
-      setView("hosted");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to create court");
-    } finally {
-      setLoading(false);
-    }
+    setView("hosted");
+  } catch (err: any) {
+    setError(err?.response?.data?.message || "Failed to create court");
+  } finally {
+    setLoading(false);
+  }
 
-  };
+};
 
   const handleCloseCourt = async (courtID: string) => {
     // handle closing court

@@ -161,7 +161,7 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
 
     // check if team is already in queue
     const currentQueue = await getQueue(courtID);
-    if (currentQueue.includes(teamID)) {
+    if (currentQueue.some(e => (typeof e === 'string' ? e : e.teamID) === teamID)) {
       return res.status(409).json({ message: 'Team is already in the queue' });
     }
 
@@ -173,35 +173,50 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
     }
 
     // ✅ get matchID and queueID directly from court doc
-    const { matchID, queueID } = court;
+    const matchData = await getMatch(courtID);
+    const queueID = matchData.queueID;
 
     // add to queue
-    await addTeamToQueue(courtID, queueID, teamID);
-    const team_queue = await getQueue(courtID);
 
-    // ✅ fix: declare teamRef and use matchID from court
-    const teamRef = db.collection('teams').doc(teamID);
-    await teamRef.update({
-      "match_status.status": "queued",
-      "match_status.current_matchID": matchID,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    const queueDoc = await getQueueDoc(courtID);
+    const queue_type = queueDoc.queue_type.toUpperCase();
+    const existing_queue = queueDoc.team_queue ?? [];
+
+    let newEntry;
+    if (queue_type === 'FIFO' || queue_type === 'CIRCULAR') {
+      newEntry = teamID; 
+    } else if (queue_type === 'PRIORITY QUEUE') {
+      const skill_level = team.skill_level ?? 'basic';
+      newEntry = { teamID, skill_level, joinedAt: new Date().toISOString() };
+    } else {
+      return res.status(400).json({ message: `Unknown queue type: ${queue_type}` });
+    }
+
+    const updated_queue = [...existing_queue, newEntry];
+    console.log('writing updated_queue:', updated_queue);
+
+    
+    const queueRef = db.collection('queues').doc(queueID);
+    await queueRef.update({ team_queue: updated_queue });
+    await db.collection('courts').doc(courtID).update({
+      queue_length: updated_queue.length,
     });
 
-    // update match with current teams if not ongoing
-    const match = await getMatch(courtID);
-    if (!match.ongoing) {
-      await updateCurrentTeamsInMatch(courtID, match);
+    console.log('queue written successfully');
+
+    // Now update match with the correct queue
+    if (!matchData.ongoing) {
+      await updateCurrentTeamsInMatch(courtID, matchData, updated_queue);
     }
 
     return res.status(200).json({
       message: 'Team Join success!',
       team: JSON.stringify(team),
-      team_queue
+      team_queue: updated_queue,
     });
-
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Internal Server Error. Cannot join queue' });
+    console.error('JOIN QUEUE ERROR:', err.message, err.stack);
+    return res.status(500).json({ message: 'Internal Server Error. Cannot join queue', error: err.message });
   }
 });
 
@@ -232,22 +247,24 @@ router.put('/:courtID/match/queue/join', async (req, res) => {
 //   return team_queue;
 // }
 
-const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the current teams in the courts and match entites and it reflects the teams in the queue
-  // 🚫 Don't update if game is in progress
+// server/routes/courtRoutes.js
+
+const updateCurrentTeamsInMatch = async (courtID, match, providedQueue = null) => {
   if (match.ongoing === true) {
     console.log("Game in progress. Skipping team update.");
     return;
   }
 
-  const team_queue = await getQueue(courtID); // getting queue
+  // use provided queue if available, otherwise fetch
+  const team_queue = providedQueue ?? await getQueue(courtID);
+  console.log('updateCurrentTeamsInMatch queue:', team_queue);
+
   const updateData = {};
 
-  // ❌ No teams → reset match
   if (!team_queue || team_queue.length === 0) {
     updateData.team1 = null;
     updateData.team2 = null;
     updateData.ongoing = false;
-
     await updateMatch(match.matchID, updateData);
     console.log("Match reset (no teams)");
     return;
@@ -263,17 +280,15 @@ const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the cur
   const team2ID = team_queue[1] ? getTeamID(team_queue[1]) : null;
 
   if (!team1ID) {
-    console.error('Could not extract team1ID from queue entry:', team_queue[0]);
+    console.error('Could not extract team1ID:', team_queue[0]);
     return;
   }
-  // ⚡ Fetch teams in parallel
-  // fetch both teams and if the second team is does not exist, set team 2 to null
-  const [team1, team2] = await Promise.all([
-  getTeam(team1ID),                        
-  team2ID ? getTeam(team2ID) : null, 
-]);
 
-  // ✅ TEAM 1
+  const [team1, team2] = await Promise.all([
+    getTeam(team1ID),
+    team2ID ? getTeam(team2ID) : null,
+  ]);
+
   updateData.team1 = {
     teamID: team1.teamID,
     team_name: team1.team_name,
@@ -281,7 +296,6 @@ const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the cur
     team_color: team1.team_settings.team_color,
   };
 
-  // ✅ TEAM 2 (if exists)
   updateData.team2 = team2
     ? {
         teamID: team2.teamID,
@@ -292,8 +306,7 @@ const updateCurrentTeamsInMatch = async (courtID, match) => { // updates the cur
     : null;
 
   await updateMatch(match.matchID, updateData);
-
-  console.log("Match teams updated!");
+  console.log("Match teams updated!", team1ID, team2ID ?? 'no team2');
 };
 
 // this "deletes" teams from queue
